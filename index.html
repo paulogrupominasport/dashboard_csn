@@ -129,7 +129,7 @@
         <div class="flex items-center justify-between gap-4 mb-4">
           <div>
             <h2 class="text-lg font-black">Evolução diária dos carregamentos</h2>
-            <p class="text-sm text-gray-500">Quantidade faturada em toneladas por data</p>
+            <p id="dailySubtitle" class="text-sm text-gray-500">Quantidade faturada em toneladas — últimos 7 dias</p>
           </div>
         </div>
         <div class="h-[330px]"><canvas id="dailyChart"></canvas></div>
@@ -386,7 +386,8 @@ function renderCharts() {
   const units = UNIT_ORDER;
   const totalInitial = Object.values(INITIAL_BALANCES).reduce((a,b)=>a+b,0);
   const loaded = sum(filteredData,"qty");
-  const dates = [...new Set(filteredData.map(r=>r.date))].sort();
+  const allDailyDates = [...new Set(filteredData.map(r=>r.date))].sort();
+  const dates = allDailyDates.slice(-7);
   const daily = dates.map(d => sum(filteredData.filter(r=>r.date===d),"qty"));
   const totals = unitTotals(filteredData);
   const prevDate = previousBaseDate();
@@ -396,8 +397,15 @@ function renderCharts() {
   charts.daily = new Chart(document.getElementById("dailyChart"), {
     type:"bar",
     data:{labels:dates.map(brDate),datasets:[{label:"Toneladas",data:daily,backgroundColor:lime,borderColor:"#95ad15",borderWidth:1,borderRadius:7,maxBarThickness:52}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:26}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtT(c.raw)}},datalabels:{display:c=>Number(c.dataset.data[c.dataIndex])>0,anchor:"end",align:"start",offset:8,color:"#242424",font:{weight:"bold",size:11,family:"Arial, Helvetica, sans-serif"},formatter:v=>chartVolumeLabel(v),clamp:true}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,grace:"15%",grid:{color:"#eef0f2"},ticks:{callback:v=>new Intl.NumberFormat("pt-BR").format(v)}}}}
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:26}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtT(c.raw)}},datalabels:{display:c=>Number(c.dataset.data[c.dataIndex])>0,anchor:"center",align:"center",rotation:-90,color:"#242424",font:{weight:"bold",size:10,family:"Arial, Helvetica, sans-serif"},formatter:v=>chartVolumeLabelCompact(v),clamp:true}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,grace:"15%",grid:{color:"#eef0f2"},ticks:{callback:v=>new Intl.NumberFormat("pt-BR").format(v)}}}}
   });
+
+  const dailySubtitleEl = document.getElementById("dailySubtitle");
+  if (dailySubtitleEl) {
+    dailySubtitleEl.textContent = dates.length
+      ? `Quantidade faturada em toneladas — últimos ${dates.length} dias (${brDate(dates[0])} a ${brDate(dates[dates.length-1])})`
+      : "Quantidade faturada em toneladas — últimos 7 dias";
+  }
 
   destroyChart("service");
   charts.service = new Chart(document.getElementById("serviceChart"), {

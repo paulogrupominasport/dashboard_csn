@@ -534,9 +534,9 @@ function applyFilters() {
   // Obter pedidos do mês selecionado
   const pedidosDoMes = monthPedidos[monthSelected] || [];
   
-  // Filtrar por: Pedidos-Mês (obrigatório) + data + unidade
+  // Filtrar por Pedidos-Mês (obrigatório, usa pedidoCliente) + data + unidade
   filteredData = allData.filter(r => 
-    pedidosDoMes.includes(r.note) &&
+    pedidosDoMes.includes(r.pedidoCliente) &&
     (!from || r.date>=from) && 
     (!to || r.date<=to) && 
     (!unit || r.unit===unit)
@@ -568,6 +568,7 @@ const FATURAMENTO_COLS = {
   date: "Nota de Saída Data da Saída",
   client: "Cliente Pseudônimo",
   note: "Nota de Saída Código Numérico",
+  pedidoCliente: "Pedido cliente",
   payment: "Condição de Pagamento Descrição",
   product: "Produto Descrição",
   icms: "Porcentagem de ICMS",
@@ -597,6 +598,7 @@ function parseFaturamentoSheet(wb) {
     date: parseExcelDate(row[FATURAMENTO_COLS.date]),
     unit: normalizeUnit(row[FATURAMENTO_COLS.client]),
     note: String(row[FATURAMENTO_COLS.note] ?? ""),
+    pedidoCliente: String(row[FATURAMENTO_COLS.pedidoCliente] ?? "").trim(),
     payment: String(row[FATURAMENTO_COLS.payment] ?? "").trim(),
     product: String(row[FATURAMENTO_COLS.product] ?? "").trim(),
     icms: Number(row[FATURAMENTO_COLS.icms]) || 0,
@@ -674,7 +676,7 @@ function parsePedidosSheet(wb) {
   return result;
 }
 
-// Dados locais de fallback: mapear pedidos por mês (serão substituídos pelos dados do Google quando disponíveis)
+// Dados locais de fallback: mapear números de pedido cliente por mês
 let monthPedidosLocal = {
   "AGOSTO": ["4504816735", "4504816737", "4504816736", "4504816739", "4504816738", "4504816734"],
   "SETEMBRO": ["4504866871", "4504866876", "4504866874", "4504866877", "4504866875", "4504866872"]

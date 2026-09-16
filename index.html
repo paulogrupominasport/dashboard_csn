@@ -886,38 +886,28 @@ function getLatestFilteredDate() {
 }
 
 function buildPdfDetailRows() {
-  // O detalhamento do PDF sempre usa o DIA ANTERIOR da data de atualização da planilha,
-  // independentemente dos filtros aplicados no dashboard.
-  // As demais informações do PDF continuam respeitando os filtros da tela.
-  const previousDate = previousBaseDate();
-  const monthLabel = currentSelectedMonth ? `(${currentSelectedMonth})` : "";
-
-  if (!previousDate) {
+  // Se não houver filteredData, retornar vazio imediatamente
+  if (!filteredData || filteredData.length === 0) {
+    const monthLabel = currentSelectedMonth ? `(${currentSelectedMonth})` : "";
     return {
       detailDate: "",
-      html: `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível para o dia anterior. ${monthLabel}</td></tr>`,
+      html: `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível. ${monthLabel}</td></tr>`,
       count: 0,
       qty: 0,
       monthLabel: monthLabel
     };
   }
 
-  // Usar filteredData para respeitar o filtro de mês selecionado
+  const monthLabel = currentSelectedMonth ? `(${currentSelectedMonth})` : "";
+  
+  // Sempre usar o ÚLTIMO DIA dos dados filtrados (não o dia anterior da planilha)
+  // Isso garante que PDF funcione para qualquer filtro
+  const allDates = filteredData.map(r => r.date).sort().reverse();
+  const lastDate = allDates[0];
+  
   let dayRows = filteredData
-    .filter(r => r.date === previousDate)
+    .filter(r => r.date === lastDate)
     .sort((a,b) => UNIT_ORDER.indexOf(a.unit) - UNIT_ORDER.indexOf(b.unit) || String(a.note).localeCompare(String(b.note)));
-
-  // Se não houver dados para o dia anterior específico, buscar o último dia disponível nos filtros
-  if (dayRows.length === 0 && filteredData.length > 0) {
-    const lastDate = filteredData
-      .map(r => r.date)
-      .sort()
-      .reverse()[0];
-    
-    dayRows = filteredData
-      .filter(r => r.date === lastDate)
-      .sort((a,b) => UNIT_ORDER.indexOf(a.unit) - UNIT_ORDER.indexOf(b.unit) || String(a.note).localeCompare(String(b.note)));
-  }
 
   let out = "";
   UNIT_ORDER.forEach(unit => {
@@ -943,7 +933,7 @@ function buildPdfDetailRows() {
   });
 
   return {
-    detailDate: dayRows[0]?.date || previousDate,
+    detailDate: lastDate,
     html: out || `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível no filtro selecionado. ${monthLabel}</td></tr>`,
     count: dayRows.length,
     qty: sum(dayRows, "qty"),
@@ -975,17 +965,20 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
   try {
     // Oculta botões e controles de interação somente durante a captura do PDF.
     noPrintElements.forEach(el => el.style.display = "none");
-    // No PDF, somente o detalhamento é substituído:
-    // ele mostra exclusivamente o último dia existente no filtro atual,
-    // agrupado e separado por unidade. KPIs, gráficos e demais tabelas
-    // permanecem exatamente conforme o filtro aplicado na tela.
+    
+    // Construir detalhamento do PDF
     const pdfDetail = buildPdfDetailRows();
+    
+    // Validar se há dados para exportar
+    if (!pdfDetail.html || pdfDetail.html.includes("Nenhum lançamento")) {
+      throw new Error("Sem dados para exportar. Verifique se o filtro tem registros.");
+    }
 
     detailBody.innerHTML = pdfDetail.html;
     detailTitle.textContent = "Detalhamento dos carregamentos — último dia";
     detailSubtitle.textContent = pdfDetail.detailDate
-      ? `Lançamentos do dia anterior (${brDate(pdfDetail.detailDate)}), separados por unidade ${pdfDetail.monthLabel}`
-      : `Sem lançamentos disponíveis no dia anterior ${pdfDetail.monthLabel}`;
+      ? `Lançamentos de ${brDate(pdfDetail.detailDate)}, separados por unidade ${pdfDetail.monthLabel}`
+      : `Sem lançamentos disponíveis ${pdfDetail.monthLabel}`;
     detailTotal.textContent = `${pdfDetail.count} registros • ${fmtT(pdfDetail.qty)}`;
 
     // Expande o detalhamento para que todos os lançamentos do último dia
@@ -994,15 +987,28 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
 
     // Aguarda o navegador aplicar as alterações antes de capturar.
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    
+    // Adiciona delay extra para garantir que html2canvas capture tudo
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (!window.html2canvas || !window.jspdf) {
+      throw new Error("Bibliotecas de PDF não carregadas. Recarregue a página.");
+    }
 
     const { jsPDF } = window.jspdf;
     const node = document.getElementById("dashboard");
+    
+    if (!node) {
+      throw new Error("Dashboard não encontrado na página.");
+    }
+
     const canvas = await html2canvas(node, {
       scale: 1.5,
       useCORS: true,
       backgroundColor: "#ffffff",
       windowWidth: node.scrollWidth,
-      windowHeight: node.scrollHeight
+      windowHeight: node.scrollHeight,
+      logging: false
     });
 
     const img = canvas.toDataURL("image/jpeg", 0.92);
@@ -1025,8 +1031,13 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
       heightLeft -= pageH;
     }
 
-    const fileDate = pdfDetail.detailDate || latestBaseDate() || "relatorio";
+    const fileDate = pdfDetail.detailDate || "relatorio";
     pdf.save(`dashboard-csn-${fileDate}.pdf`);
+    
+  } catch (err) {
+    console.error("Erro ao gerar PDF:", err);
+    alert("Erro ao gerar PDF: " + err.message);
+    
   } finally {
     // Restaura a página exatamente como estava antes da exportação.
     detailBody.innerHTML = originalBody;

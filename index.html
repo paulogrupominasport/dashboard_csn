@@ -896,7 +896,8 @@ function buildPdfDetailRows() {
     };
   }
 
-  const dayRows = allData
+  // Usar filteredData para respeitar o filtro de mês selecionado
+  const dayRows = filteredData
     .filter(r => r.date === previousDate)
     .sort((a,b) => UNIT_ORDER.indexOf(a.unit) - UNIT_ORDER.indexOf(b.unit) || String(a.note).localeCompare(String(b.note)));
 

@@ -239,6 +239,12 @@ let allData = [{"date": "2026-08-04", "unit": "PEDRO LEOPOLDO", "note": "202618"
 let filteredData = [...allData];
 let charts = {};
 
+// Mapeia pedidos_cliente -> { unidade, quantidade_inicial }
+let pedidoInitialBalances = {};
+
+// Rastreia o mês atualmente selecionado no filtro
+let currentSelectedMonth = null;
+
 // Toneladas programadas para o dia anterior, por unidade (aba "Programado" da planilha),
 // e justificativa quando o programado não foi 100% cumprido. Este objeto é a base local
 // (fallback) usada enquanto os dados ao vivo do Google Sheets ainda não foram carregados
@@ -467,8 +473,25 @@ function renderSummary() {
   const totals = unitTotals(filteredData);
   const prev = previousBaseDate();
   const prevTotals = unitTotals(allData.filter(r=>r.date===prev));
+  
+  // Obter os pedidos do mês selecionado
+  const pedidosDoMes = monthPedidos[currentSelectedMonth] || [];
+  
+  // Calcular saldos iniciais por unidade baseado nos pedidos do mês
+  const initialByUnit = {};
+  UNIT_ORDER.forEach(u => {
+    initialByUnit[u] = 0;
+  });
+  
+  pedidosDoMes.forEach(pedidoNum => {
+    const pedidoData = pedidoInitialBalances[pedidoNum];
+    if (pedidoData) {
+      initialByUnit[pedidoData.unidade] = (initialByUnit[pedidoData.unidade] || 0) + pedidoData.quantidade;
+    }
+  });
+  
   body.innerHTML = UNIT_ORDER.map(u => {
-    const initial = INITIAL_BALANCES[u];
+    const initial = initialByUnit[u] || 0;
     const loaded = totals[u];
     const balance = Math.max(initial-loaded,0);
     const pct = initial ? loaded/initial*100 : 0;
@@ -526,6 +549,9 @@ function applyFilters() {
     alert("Por favor, selecione um Pedidos-Mês para visualizar os dados.");
     return;
   }
+  
+  // Rastrear mês selecionado
+  currentSelectedMonth = monthSelected;
   
   const from = document.getElementById("dateFrom").value;
   const to = document.getElementById("dateTo").value;
@@ -676,6 +702,46 @@ function parsePedidosSheet(wb) {
   return result;
 }
 
+// Lê a aba "Pedidos x Saldos" e mapeia pedidos_cliente -> { unidade, quantidade_inicial }
+function parsePedidosInitialBalances(wb) {
+  const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "pedidos x saldos");
+  if (!sheetName) return {};
+  
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""});
+  
+  const meses = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+  const result = {};
+  let currentMonth = null;
+  
+  rows.forEach((row, idx) => {
+    const col0 = String(row[0] || "").trim().toUpperCase();
+    
+    // Detecta novo mês
+    if (meses.includes(col0)) {
+      currentMonth = col0;
+      return;
+    }
+    
+    // Se estamos em um mês e encontramos dados válidos
+    if (currentMonth && row[1] && row[2] && row[0] !== "UNIDADE" && row[0] !== "TOTAL") {
+      const unidade = String(row[0] || "").trim();
+      const pedidoNum = String(Math.floor(Number(row[1])));
+      const qtiPedido = Number(row[2]) || 0;
+      
+      if (pedidoNum && pedidoNum !== "NaN" && unidade) {
+        result[pedidoNum] = {
+          unidade: normalizeUnit(unidade),
+          quantidade: qtiPedido,
+          mes: currentMonth
+        };
+      }
+    }
+  });
+  
+  return result;
+}
+
 // Dados locais de fallback: mapear números de pedido cliente por mês
 let monthPedidosLocal = {
   "AGOSTO": ["4504816735", "4504816737", "4504816736", "4504816739", "4504816738", "4504816734"],
@@ -684,6 +750,26 @@ let monthPedidosLocal = {
 
 // Inicializar monthPedidos com dados locais
 monthPedidos = monthPedidosLocal;
+
+// Dados locais de saldos iniciais por pedido (QTD PEDIDO da aba "Pedidos x Saldos")
+let pedidoInitialBalancesLocal = {
+  // AGOSTO
+  "4504816735": { unidade: "ARCOS", quantidade: 19465, mes: "AGOSTO" },
+  "4504816737": { unidade: "BARROSO", quantidade: 12787, mes: "AGOSTO" },
+  "4504816736": { unidade: "CANTAGALO", quantidade: 3285, mes: "AGOSTO" },
+  "4504816739": { unidade: "MONTES CLAROS", quantidade: 6552, mes: "AGOSTO" },
+  "4504816738": { unidade: "PEDRO LEOPOLDO", quantidade: 10861, mes: "AGOSTO" },
+  "4504816734": { unidade: "VOLTA REDONDA", quantidade: 2050, mes: "AGOSTO" },
+  // SETEMBRO
+  "4504866871": { unidade: "ARCOS", quantidade: 18924, mes: "SETEMBRO" },
+  "4504866876": { unidade: "BARROSO", quantidade: 15263, mes: "SETEMBRO" },
+  "4504866874": { unidade: "CANTAGALO", quantidade: 6269, mes: "SETEMBRO" },
+  "4504866877": { unidade: "MONTES CLAROS", quantidade: 7325, mes: "SETEMBRO" },
+  "4504866875": { unidade: "PEDRO LEOPOLDO", quantidade: 4122, mes: "SETEMBRO" },
+  "4504866872": { unidade: "VOLTA REDONDA", quantidade: 3097, mes: "SETEMBRO" }
+};
+
+pedidoInitialBalances = pedidoInitialBalancesLocal;
 
 // Popula o dropdown de Pedidos-Mês
 function populateMonthFilter() {
@@ -714,8 +800,12 @@ async function loadRemoteData(silent) {
     const prog = parseProgramadoSheet(wb);
     if (prog) programado = prog;
     
-    // Ler aba "Pedidos x Saldos" para separar por mês
+    // Ler aba "Pedidos x Saldos" para separar por mês e saldos iniciais
     monthPedidos = parsePedidosSheet(wb);
+    const balances = parsePedidosInitialBalances(wb);
+    if (Object.keys(balances).length > 0) {
+      pedidoInitialBalances = balances;
+    }
 
     const lastModified = res.headers.get("last-modified");
     spreadsheetUpdateTimestamp = lastModified ? new Date(lastModified).toISOString() : new Date().toISOString();
@@ -757,14 +847,26 @@ document.getElementById("fileInput").addEventListener("change", async (event) =>
     filteredData = [...parsed];
     const prog = parseProgramadoSheet(wb);
     if (prog) programado = prog;
+    
+    // Ler aba "Pedidos x Saldos" para separar por mês e saldos iniciais
+    monthPedidos = parsePedidosSheet(wb);
+    const balances = parsePedidosInitialBalances(wb);
+    if (Object.keys(balances).length > 0) {
+      pedidoInitialBalances = balances;
+    }
+    
     // Registra o momento real da atualização. A partir daqui, todas as referências
     // a "dia anterior" passam a usar D-1 desta data, na web e no PDF.
     spreadsheetUpdateTimestamp = new Date().toISOString();
     setDataSourceLabel("Arquivo local carregado manualmente");
     populateUnits();
+    document.getElementById("monthPedidosFilter").value = "";
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
     document.getElementById("unitFilter").value = "";
+    
+    // Popular o filtro de meses
+    populateMonthFilter();
     renderAll();
     alert(`Planilha atualizada com sucesso: ${parsed.length} registros válidos.`);
   } catch (err) {
@@ -921,6 +1023,17 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
 
 populateUnits();
 populateMonthFilter();
+
+// Auto-selecionar primeiro mês disponível
+const meses = Object.keys(monthPedidos);
+if (meses.length > 0) {
+  const primeiroMes = meses.sort()[0];
+  document.getElementById("monthPedidosFilter").value = primeiroMes;
+  currentSelectedMonth = primeiroMes;
+  const pedidosDoMes = monthPedidos[primeiroMes] || [];
+  filteredData = allData.filter(r => pedidosDoMes.includes(r.pedidoCliente));
+}
+
 setDataSourceLabel("Base local (aguardando conexão)");
 // Ao abrir a página, tenta buscar a planilha publicada no Google Sheets automaticamente.
 // Enquanto isso não termina, o dashboard já exibe a base local embutida no arquivo,

@@ -568,7 +568,7 @@ const FATURAMENTO_COLS = {
   date: "Nota de Saída Data da Saída",
   client: "Cliente Pseudônimo",
   note: "Nota de Saída Código Numérico",
-  pedidoCliente: "Pedido cliente",
+  pedidoCliente: "Pedido do Cliente",
   payment: "Condição de Pagamento Descrição",
   product: "Produto Descrição",
   icms: "Porcentagem de ICMS",
@@ -598,7 +598,7 @@ function parseFaturamentoSheet(wb) {
     date: parseExcelDate(row[FATURAMENTO_COLS.date]),
     unit: normalizeUnit(row[FATURAMENTO_COLS.client]),
     note: String(row[FATURAMENTO_COLS.note] ?? ""),
-    pedidoCliente: String(row[FATURAMENTO_COLS.pedidoCliente] ?? "").trim(),
+    pedidoCliente: String(Math.floor(Number(row[FATURAMENTO_COLS.pedidoCliente] ?? 0))),
     payment: String(row[FATURAMENTO_COLS.payment] ?? "").trim(),
     product: String(row[FATURAMENTO_COLS.product] ?? "").trim(),
     icms: Number(row[FATURAMENTO_COLS.icms]) || 0,
@@ -666,8 +666,8 @@ function parsePedidosSheet(wb) {
     
     // Se estamos em um mês e encontramos o número do pedido (coluna 1)
     if (currentMonth && row[1] && row[0] !== "UNIDADE" && row[0] !== "TOTAL") {
-      const pedidoNum = String(row[1]).trim();
-      if (pedidoNum && pedidoNum !== "NÚMERO DO PEDIDO") {
+      const pedidoNum = String(Math.floor(Number(row[1])));
+      if (pedidoNum && pedidoNum !== "NÚMERO DO PEDIDO" && pedidoNum !== "NaN") {
         result[currentMonth].push(pedidoNum);
       }
     }

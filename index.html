@@ -31,17 +31,10 @@
     .progress-fill { background:linear-gradient(90deg,var(--mp-lime-dark),var(--mp-lime)); height:100%; border-radius:999px; }
     .table-head { background: #242424; color: white; }
     .sticky-head thead th { position: sticky; top: 0; z-index: 4; }
-    .month-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .month-tab { padding: 8px 16px; border-radius: 8px; border: 1px solid #d1d5db; background: white; cursor: pointer; font-weight: 600; transition: all 0.3s; }
-    .month-tab:hover { background: #f3f4f6; }
-    .month-tab.active { background: #b8d51b; color: white; border-color: #b8d51b; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
     @media print {
       .no-print { display: none !important; }
       body { background: white; }
       .card { box-shadow: none; }
-      .month-tabs { display: none; }
     }
   </style>
 </head>
@@ -81,10 +74,14 @@
       </div>
     </header>
 
-    <div class="month-tabs" id="monthTabsContainer"></div>
-
     <section class="no-print card p-4 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div>
+          <label class="text-xs font-bold uppercase tracking-wide text-gray-500">Pedidos-Mês <span class="text-red-600">*</span></label>
+          <select id="monthPedidosFilter" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#b8d51b] font-semibold" required>
+            <option value="">Selecione um mês</option>
+          </select>
+        </div>
         <div>
           <label class="text-xs font-bold uppercase tracking-wide text-gray-500">Data inicial</label>
           <input id="dateFrom" type="date" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#b8d51b]" />
@@ -522,20 +519,40 @@ function populateUnits() {
 }
 
 function applyFilters() {
+  const monthSelected = document.getElementById("monthPedidosFilter").value;
+  
+  // Validar se mês foi selecionado
+  if (!monthSelected) {
+    alert("Por favor, selecione um Pedidos-Mês para visualizar os dados.");
+    return;
+  }
+  
   const from = document.getElementById("dateFrom").value;
   const to = document.getElementById("dateTo").value;
   const unit = document.getElementById("unitFilter").value;
-  filteredData = allData.filter(r => (!from || r.date>=from) && (!to || r.date<=to) && (!unit || r.unit===unit));
+  
+  // Obter pedidos do mês selecionado
+  const pedidosDoMes = monthPedidos[monthSelected] || [];
+  
+  // Filtrar por: Pedidos-Mês (obrigatório) + data + unidade
+  filteredData = allData.filter(r => 
+    pedidosDoMes.includes(r.note) &&
+    (!from || r.date>=from) && 
+    (!to || r.date<=to) && 
+    (!unit || r.unit===unit)
+  );
+  
   renderAll();
 }
 
 document.getElementById("applyBtn").addEventListener("click", applyFilters);
 
 document.getElementById("clearBtn").addEventListener("click", () => {
+  document.getElementById("monthPedidosFilter").value = "";
   document.getElementById("dateFrom").value = "";
   document.getElementById("dateTo").value = "";
   document.getElementById("unitFilter").value = "";
-  filteredData = [...allData];
+  filteredData = [];
   renderAll();
 });
 
@@ -623,7 +640,6 @@ function setDataSourceLabel(text) {
 
 // Lê aba "Pedidos x Saldos" e retorna mapeamento de mês → números de pedidos
 let monthPedidos = null; // será inicializado com dados locais, depois substituído por dados do Google
-let currentSelectedMonth = null;
 
 function parsePedidosSheet(wb) {
   const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "pedidos x saldos");
@@ -660,53 +676,19 @@ function parsePedidosSheet(wb) {
 
 // Dados locais de fallback: mapear pedidos por mês (serão substituídos pelos dados do Google quando disponíveis)
 let monthPedidosLocal = {
-  "AGOSTO": ["202618", "202619", "202620", "202621", "202622", "202623", "202624", "202625", "202626", "202627", "202628", "202629", "202630", "202631", "202632", "202633", "202634", "202635", "202636", "202637", "202638", "202639", "202640", "202641", "202642", "202643", "202644", "202645", "202646", "202647", "202648", "202649", "202650", "202651", "202652", "202653", "202654", "202655", "202656", "202657", "202658", "202660", "202662", "202663", "202664", "202665", "202666", "202667", "202668", "202669", "202670", "202671", "202672", "202673", "202674", "202675", "202676", "202677", "202678", "202679", "202680", "202681", "202685", "202686", "202687", "202688", "202689", "202690", "202691", "202692", "202693", "202694", "202695", "202696", "202697", "202699", "202700", "202701", "202702", "202703", "202704", "202705", "202706", "202707", "202708", "202710", "202711", "202712", "202713", "202714", "202717", "202718", "202719", "202720", "202721", "202722", "202724", "202725", "202726", "202727", "202728", "202729", "202730", "202731", "202732", "202733", "202734", "202735", "202736", "202737", "202738", "202739", "202740", "202741", "202742", "202743", "202744", "202745", "202746", "202747", "202748", "202749", "202750", "202751", "202752", "202753", "202754", "202755", "202756", "202757", "202758", "202760", "202762", "202763", "202764", "202765", "202767", "202768", "202769", "202770", "202771", "202772", "202773", "202775", "202776", "202777", "202778", "202779", "202780", "202781", "202782", "202783", "202784", "202785", "202786", "202787", "202788", "202789", "202790", "202791", "202792", "202793", "202794", "202795", "202796", "202797", "37135", "37136", "37137", "37138", "37139", "37140", "37141", "37142", "37143", "37144", "37145", "37146", "37147", "37148", "37149", "37150", "37151", "37152", "37153", "37154", "37155", "37156", "37157", "37158", "37159", "37160", "37161", "37162", "37163", "37164", "37165", "37166", "37167", "37168", "37169", "37170", "37172", "37173", "37174", "37175", "37176", "37177", "37178", "37179", "37180", "37181", "37182", "37183", "37184", "37185", "37186", "37187", "37188", "37189", "37190", "37191", "37192", "37193", "37194", "37195", "37196", "37197", "37198", "37199", "37200", "37201"]
+  "AGOSTO": ["4504816735", "4504816737", "4504816736", "4504816739", "4504816738", "4504816734"],
+  "SETEMBRO": ["4504866871", "4504866876", "4504866874", "4504866877", "4504866875", "4504866872"]
 };
 
 // Inicializar monthPedidos com dados locais
 monthPedidos = monthPedidosLocal;
 
-// Renderiza abas dos meses
-function renderMonthTabs() {
-  const container = document.getElementById("monthTabsContainer");
+// Popula o dropdown de Pedidos-Mês
+function populateMonthFilter() {
+  const select = document.getElementById("monthPedidosFilter");
   const meses = Object.keys(monthPedidos).sort();
   
-  if (meses.length === 0) {
-    container.style.display = "none";
-    return;
-  }
-  
-  container.style.display = "flex";
-  container.innerHTML = meses.map((mes, idx) => {
-    const isActive = idx === 0 ? "active" : "";
-    return `<button class="month-tab ${isActive}" data-month="${mes}">${mes}</button>`;
-  }).join("");
-  
-  // Setup listeners
-  container.querySelectorAll(".month-tab").forEach(btn => {
-    btn.addEventListener("click", () => selectMonth(btn.dataset.month));
-  });
-  
-  if (meses.length > 0) {
-    selectMonth(meses[0]);
-  }
-}
-
-// Seleciona um mês e filtra dados
-function selectMonth(mes) {
-  currentSelectedMonth = mes;
-  
-  // Atualizar abas
-  document.querySelectorAll(".month-tab").forEach(btn => {
-    btn.classList.remove("active");
-    if (btn.dataset.month === mes) btn.classList.add("active");
-  });
-  
-  // Filtrar dados: manter apenas registros cujo note (número de pedido) está na lista do mês
-  const pedidosDoMes = monthPedidos[mes] || [];
-  filteredData = allData.filter(r => pedidosDoMes.includes(r.note));
-  
-  renderAll();
+  select.innerHTML = '<option value="">Selecione um mês</option>' + meses.map(mes => `<option value="${mes}">${mes}</option>`).join("");
 }
 
 // Busca a planilha publicada do Google Sheets (REMOTE_XLSX_URL) e atualiza o dashboard
@@ -726,7 +708,7 @@ async function loadRemoteData(silent) {
     if (!parsed.length) throw new Error("A planilha remota não trouxe registros válidos.");
 
     allData = parsed;
-    filteredData = [...allData];
+    filteredData = [];
     const prog = parseProgramadoSheet(wb);
     if (prog) programado = prog;
     
@@ -738,12 +720,13 @@ async function loadRemoteData(silent) {
 
     setDataSourceLabel("Google Sheets (dados ao vivo)");
     populateUnits();
+    document.getElementById("monthPedidosFilter").value = "";
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
     document.getElementById("unitFilter").value = "";
     
-    // Renderizar abas de mês
-    renderMonthTabs();
+    // Popular o filtro de meses
+    populateMonthFilter();
     renderAll();
     return true;
   } catch (err) {
@@ -935,8 +918,7 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
 });
 
 populateUnits();
-renderMonthTabs();
-renderAll();
+populateMonthFilter();
 setDataSourceLabel("Base local (aguardando conexão)");
 // Ao abrir a página, tenta buscar a planilha publicada no Google Sheets automaticamente.
 // Enquanto isso não termina, o dashboard já exibe a base local embutida no arquivo,

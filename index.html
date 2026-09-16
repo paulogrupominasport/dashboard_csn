@@ -69,7 +69,7 @@
         </div>
         <span class="inline-flex items-center gap-2 text-gray-500">
           <span class="w-2.5 h-2.5 rounded-full bg-[#b8d51b]"></span>
-          Saldos iniciais fixos: 50.000 t
+          <span id="monthFilterDisplay">—</span>
         </span>
       </div>
     </header>
@@ -164,7 +164,7 @@
     <section class="card overflow-hidden mb-6">
       <div class="px-5 py-4 border-b border-gray-100">
         <h2 class="text-lg font-black">Posição consolidada por unidade</h2>
-        <p class="text-sm text-gray-500">Saldos iniciais fixos, carregado, saldo restante e percentual de atendimento</p>
+        <p class="text-sm text-gray-500">Carregado, saldo restante e percentual de atendimento por unidade</p>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -553,6 +553,9 @@ function applyFilters() {
   // Rastrear mês selecionado
   currentSelectedMonth = monthSelected;
   
+  // Atualizar display do mês
+  document.getElementById("monthFilterDisplay").textContent = `Pedidos-Mês: ${monthSelected}`;
+  
   const from = document.getElementById("dateFrom").value;
   const to = document.getElementById("dateTo").value;
   const unit = document.getElementById("unitFilter").value;
@@ -578,6 +581,7 @@ document.getElementById("clearBtn").addEventListener("click", () => {
   document.getElementById("dateFrom").value = "";
   document.getElementById("dateTo").value = "";
   document.getElementById("unitFilter").value = "";
+  document.getElementById("monthFilterDisplay").textContent = "—";
   filteredData = [];
   renderAll();
 });
@@ -886,20 +890,34 @@ function buildPdfDetailRows() {
   // independentemente dos filtros aplicados no dashboard.
   // As demais informações do PDF continuam respeitando os filtros da tela.
   const previousDate = previousBaseDate();
+  const monthLabel = currentSelectedMonth ? `(${currentSelectedMonth})` : "";
 
   if (!previousDate) {
     return {
       detailDate: "",
-      html: `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível para o dia anterior.</td></tr>`,
+      html: `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível para o dia anterior. ${monthLabel}</td></tr>`,
       count: 0,
-      qty: 0
+      qty: 0,
+      monthLabel: monthLabel
     };
   }
 
   // Usar filteredData para respeitar o filtro de mês selecionado
-  const dayRows = filteredData
+  let dayRows = filteredData
     .filter(r => r.date === previousDate)
     .sort((a,b) => UNIT_ORDER.indexOf(a.unit) - UNIT_ORDER.indexOf(b.unit) || String(a.note).localeCompare(String(b.note)));
+
+  // Se não houver dados para o dia anterior específico, buscar o último dia disponível nos filtros
+  if (dayRows.length === 0 && filteredData.length > 0) {
+    const lastDate = filteredData
+      .map(r => r.date)
+      .sort()
+      .reverse()[0];
+    
+    dayRows = filteredData
+      .filter(r => r.date === lastDate)
+      .sort((a,b) => UNIT_ORDER.indexOf(a.unit) - UNIT_ORDER.indexOf(b.unit) || String(a.note).localeCompare(String(b.note)));
+  }
 
   let out = "";
   UNIT_ORDER.forEach(unit => {
@@ -909,7 +927,7 @@ function buildPdfDetailRows() {
     const unitQty = sum(rows, "qty");
     out += `<tr>
       <td colspan="7" class="px-4 py-3 bg-[#eef2d2] border-y border-[#d9e39b] font-black text-[#242424]">
-        ${unit} — ${brDate(previousDate)} — ${fmtT(unitQty)}
+        ${unit} — ${brDate(dayRows[0].date)} — ${fmtT(unitQty)}
       </td>
     </tr>`;
 
@@ -925,10 +943,11 @@ function buildPdfDetailRows() {
   });
 
   return {
-    detailDate: previousDate,
-    html: out || `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível no dia anterior.</td></tr>`,
+    detailDate: dayRows[0]?.date || previousDate,
+    html: out || `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível no filtro selecionado. ${monthLabel}</td></tr>`,
     count: dayRows.length,
-    qty: sum(dayRows, "qty")
+    qty: sum(dayRows, "qty"),
+    monthLabel: monthLabel
   };
 }
 
@@ -965,8 +984,8 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
     detailBody.innerHTML = pdfDetail.html;
     detailTitle.textContent = "Detalhamento dos carregamentos — último dia";
     detailSubtitle.textContent = pdfDetail.detailDate
-      ? `Lançamentos do dia anterior (${brDate(pdfDetail.detailDate)}), separados por unidade`
-      : "Sem lançamentos disponíveis no dia anterior";
+      ? `Lançamentos do dia anterior (${brDate(pdfDetail.detailDate)}), separados por unidade ${pdfDetail.monthLabel}`
+      : `Sem lançamentos disponíveis no dia anterior ${pdfDetail.monthLabel}`;
     detailTotal.textContent = `${pdfDetail.count} registros • ${fmtT(pdfDetail.qty)}`;
 
     // Expande o detalhamento para que todos os lançamentos do último dia
@@ -1031,6 +1050,7 @@ if (meses.length > 0) {
   const primeiroMes = meses.sort()[0];
   document.getElementById("monthPedidosFilter").value = primeiroMes;
   currentSelectedMonth = primeiroMes;
+  document.getElementById("monthFilterDisplay").textContent = `Pedidos-Mês: ${primeiroMes}`;
   const pedidosDoMes = monthPedidos[primeiroMes] || [];
   filteredData = allData.filter(r => pedidosDoMes.includes(r.pedidoCliente));
 }

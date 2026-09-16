@@ -962,27 +962,114 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
   const noPrintElements = [...document.querySelectorAll(".no-print")];
   const originalNoPrintDisplays = noPrintElements.map(el => el.style.display);
 
-  // Canvas (gráficos Chart.js) com largura ou altura 0 quebram o html2canvas
-  // ("The image argument is a canvas element with a width or height of 0").
-  // Isso acontece quando o filtro selecionado deixa algum gráfico sem dados.
-  // Aqui esses canvas são neutralizados durante a captura e restaurados depois.
-  const patchedCanvases = [];
+  // O html2canvas quebra com "createPattern ... width or height of 0" sempre que
+  // encontra um elemento de dimensão zero que tenha background-image (as barras
+  // .progress-fill ficam com width:0% quando a unidade não teve carregamento) ou
+  // um <canvas> de gráfico sem dados. Antes da captura esses elementos são
+  // neutralizados e, no finally, tudo volta exatamente como estava.
+  const sanitized = [];
 
-  function patchZeroSizedCanvases() {
-    document.querySelectorAll("canvas").forEach(cv => {
+  function sanitizeZeroSizedElements() {
+    const root = document.getElementById("dashboard") || document.body;
+
+    root.querySelectorAll("canvas").forEach(cv => {
       if (cv.width === 0 || cv.height === 0) {
-        patchedCanvases.push({ el: cv, w: cv.width, h: cv.height });
+        sanitized.push({ type: "canvas", el: cv, w: cv.width, h: cv.height });
         cv.width = Math.max(cv.width, 1);
         cv.height = Math.max(cv.height, 1);
       }
     });
+
+    root.querySelectorAll("*").forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return;
+
+      const cs = window.getComputedStyle(el);
+      const hasBgImage = cs.backgroundImage && cs.backgroundImage !== "none";
+      const hasBorderImage = cs.borderImageSource && cs.borderImageSource !== "none";
+      if (!hasBgImage && !hasBorderImage) return;
+
+      sanitized.push({
+        type: "style",
+        el: el,
+        backgroundImage: el.style.backgroundImage,
+        borderImageSource: el.style.borderImageSource,
+        display: el.style.display
+      });
+
+      el.style.backgroundImage = "none";
+      el.style.borderImageSource = "none";
+      el.style.display = "none";
+    });
   }
 
-  function restorePatchedCanvases() {
-    patchedCanvases.forEach(({ el, w, h }) => {
-      try { el.width = w; el.height = h; } catch (e) {}
-    });
-    patchedCanvases.length = 0;
+  // Blindagem definitiva: o html2canvas chama ctx.createPattern()/drawImage() com
+  // canvas intermediários que podem ter largura ou altura 0 (gradientes em
+  // elementos sem dimensão, imagens que não carregaram, gráficos sem dados).
+  // Nesses casos o navegador lança
+  // "Failed to execute 'createPattern' ... width or height of 0" e a exportação
+  // morre. Durante a captura esses dois métodos passam a ignorar entradas
+  // inválidas em vez de lançar. Restaurados no finally.
+  let originalCreatePattern = null;
+  let originalDrawImage = null;
+
+  function isZeroSized(img) {
+    if (!img) return true;
+    const w = img.width !== undefined ? img.width : img.naturalWidth;
+    const h = img.height !== undefined ? img.height : img.naturalHeight;
+    return !w || !h;
+  }
+
+  function installCanvasGuards() {
+    const proto = window.CanvasRenderingContext2D && window.CanvasRenderingContext2D.prototype;
+    if (!proto || originalCreatePattern) return;
+
+    originalCreatePattern = proto.createPattern;
+    originalDrawImage = proto.drawImage;
+
+    proto.createPattern = function(image, repetition) {
+      if (isZeroSized(image)) return null;
+      try {
+        return originalCreatePattern.call(this, image, repetition);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    proto.drawImage = function(image) {
+      if (isZeroSized(image)) return;
+      try {
+        return originalDrawImage.apply(this, arguments);
+      } catch (e) {
+        return;
+      }
+    };
+  }
+
+  function removeCanvasGuards() {
+    const proto = window.CanvasRenderingContext2D && window.CanvasRenderingContext2D.prototype;
+    if (!proto || !originalCreatePattern) return;
+    proto.createPattern = originalCreatePattern;
+    proto.drawImage = originalDrawImage;
+    originalCreatePattern = null;
+    originalDrawImage = null;
+  }
+
+  function restoreSanitizedElements() {
+    for (let i = sanitized.length - 1; i >= 0; i--) {
+      const item = sanitized[i];
+      try {
+        if (item.type === "canvas") {
+          item.el.width = item.w;
+          item.el.height = item.h;
+        } else {
+          item.el.style.backgroundImage = item.backgroundImage;
+          item.el.style.borderImageSource = item.borderImageSource;
+          item.el.style.display = item.display;
+        }
+      } catch (e) {}
+    }
+    sanitized.length = 0;
   }
 
   try {
@@ -1008,7 +1095,8 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
     // Aguarda o navegador aplicar as alterações antes de capturar.
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-    patchZeroSizedCanvases();
+    sanitizeZeroSizedElements();
+    installCanvasGuards();
 
     const { jsPDF } = window.jspdf;
     const node = document.getElementById("dashboard");
@@ -1019,12 +1107,19 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
       windowWidth: node.scrollWidth,
       windowHeight: node.scrollHeight,
       onclone: (doc) => {
+        // Segunda barreira: no documento clonado, remove background-image de
+        // qualquer elemento que ainda esteja com largura ou altura zero.
         doc.querySelectorAll("canvas").forEach(cv => {
           if (cv.width === 0 || cv.height === 0) {
-            const ph = doc.createElement("div");
-            ph.style.width = (cv.style.width || "100%");
-            ph.style.height = (cv.style.height || "0px");
-            cv.parentNode.replaceChild(ph, cv);
+            cv.remove();
+          }
+        });
+        doc.querySelectorAll("*").forEach(el => {
+          const w = el.offsetWidth;
+          const h = el.offsetHeight;
+          if (w === 0 || h === 0) {
+            el.style.backgroundImage = "none";
+            el.style.borderImageSource = "none";
           }
         });
       }
@@ -1056,7 +1151,8 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
     console.error("Erro ao gerar PDF:", err);
     alert("Erro ao gerar PDF: " + err.message);
   } finally {
-    restorePatchedCanvases();
+    removeCanvasGuards();
+    restoreSanitizedElements();
 
     // Restaura a página exatamente como estava antes da exportação.
     detailBody.innerHTML = originalBody;

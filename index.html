@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>
     :root {
       --mp-black: #242424;
@@ -961,85 +962,99 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({orientation: "portrait", unit: "mm", format: "a4"});
     
-    // Configurar fontes
-    pdf.setFont("helvetica", "normal");
-    let yPos = 15;
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const margin = 10;
-
     // Título
-    pdf.setFontSize(14);
+    pdf.setFontSize(16);
     pdf.setFont("helvetica", "bold");
-    pdf.text("Dashboard CSN — Grupo Minas Port", margin, yPos);
-    yPos += 8;
-
-    // Subtítulo com data e mês
-    pdf.setFontSize(10);
+    pdf.text("Dashboard CSN — Grupo Minas Port", 15, 15);
+    
+    // Subtítulo
+    pdf.setFontSize(11);
     pdf.setFont("helvetica", "normal");
     const dateStr = pdfDetail.detailDate ? brDate(pdfDetail.detailDate) : "Sem data";
-    pdf.text(`Lançamentos de ${dateStr} ${pdfDetail.monthLabel}`, margin, yPos);
-    yPos += 6;
-
+    pdf.text(`Lançamentos de ${dateStr} ${pdfDetail.monthLabel}`, 15, 23);
+    
     // Resumo
-    pdf.setFontSize(9);
-    pdf.text(`${pdfDetail.count} registros • ${fmtT(pdfDetail.qty)}`, margin, yPos);
-    yPos += 10;
+    pdf.setFontSize(10);
+    pdf.text(`${pdfDetail.count} registros • ${fmtT(pdfDetail.qty)}`, 15, 30);
 
-    // Parse tabela de HTML
+    // Parse HTML para extrair dados
     const parser = new DOMParser();
     const htmlDoc = parser.parseFromString(`<table>${pdfDetail.html}</table>`, "text/html");
     const rows = htmlDoc.querySelectorAll("tr");
 
-    // Cabeçalhos
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    const colWidths = [18, 22, 18, 20, 15, 22, 20];
-    const headers = ["Data", "Unidade", "Pedido", "Produto", "QTD (t)", "Preço Unit.", "Valor"];
+    // Preparar dados para autoTable
+    const tableData = [];
     
-    let xPos = margin;
-    headers.forEach((header, i) => {
-      pdf.text(header, xPos, yPos, {maxWidth: colWidths[i] - 1, fontSize: 8});
-      xPos += colWidths[i];
-    });
-    yPos += 7;
-
-    // Linha separadora
-    pdf.setDrawColor(200);
-    pdf.line(margin, yPos - 1, pageWidth - margin, yPos - 1);
-    yPos += 1;
-
-    // Dados das linhas
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
-
     rows.forEach(row => {
       const cells = row.querySelectorAll("td");
       if (cells.length === 0) return;
 
-      // Se for header de unidade (colspan=7), usar fundo
+      // Se for header (colspan=7), renderizar como seção
       if (cells.length === 1 && cells[0].getAttribute("colspan") === "7") {
-        pdf.setFillColor(238, 242, 210);
-        pdf.rect(margin, yPos - 4, pageWidth - margin * 2, 5, "F");
-        pdf.setFont("helvetica", "bold");
-        pdf.text(cells[0].textContent, margin + 1, yPos);
-        pdf.setFont("helvetica", "normal");
-        yPos += 6;
+        tableData.push([{
+          content: cells[0].textContent,
+          colSpan: 7,
+          styles: {
+            fillColor: [238, 242, 210],
+            textColor: [36, 36, 36],
+            fontStyle: 'bold',
+            fontSize: 9,
+            halign: 'left'
+          }
+        }]);
       } else if (cells.length === 7) {
-        // Linha de dados normal
-        xPos = margin;
-        for (let i = 0; i < 7; i++) {
-          const text = cells[i].textContent.trim();
-          const align = i >= 4 ? "right" : "left";
-          pdf.text(text, xPos, yPos, {maxWidth: colWidths[i] - 1, align});
-          xPos += colWidths[i];
-        }
-        yPos += 5;
+        // Linha de dados
+        tableData.push([
+          cells[0].textContent.trim(),
+          cells[1].textContent.trim(),
+          cells[2].textContent.trim(),
+          cells[3].textContent.trim(),
+          cells[4].textContent.trim(),
+          cells[5].textContent.trim(),
+          cells[6].textContent.trim()
+        ]);
+      }
+    });
 
-        // Paginação
-        if (yPos > 270) {
-          pdf.addPage();
-          yPos = 15;
-        }
+    // Gerar tabela com autoTable
+    pdf.autoTable({
+      startY: 35,
+      head: [['Data', 'Unidade', 'Pedido', 'Produto', 'QTD (t)', 'Preço Unit.', 'Valor']],
+      body: tableData,
+      headStyles: {
+        fillColor: [184, 213, 27],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        fontSize: 9,
+        halign: 'center',
+        valign: 'middle'
+      },
+      bodyStyles: {
+        fontSize: 8,
+        valign: 'middle'
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 18 },
+        1: { halign: 'left', cellWidth: 25 },
+        2: { halign: 'center', cellWidth: 18 },
+        3: { halign: 'left', cellWidth: 20 },
+        4: { halign: 'right', cellWidth: 15 },
+        5: { halign: 'right', cellWidth: 22 },
+        6: { halign: 'right', cellWidth: 22 }
+      },
+      margin: {top: 10, right: 10, bottom: 10, left: 10},
+      didDrawPage: (data) => {
+        // Rodapé com página
+        const pageCount = pdf.internal.getPages().length;
+        const pageSize = pdf.internal.pageSize;
+        const pageHeight = pageSize.getHeight();
+        pdf.setFontSize(7);
+        pdf.text(
+          `Página ${data.pageNumber} de ${pageCount}`,
+          pageSize.getWidth() / 2,
+          pageHeight - 5,
+          { align: 'center' }
+        );
       }
     });
 

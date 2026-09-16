@@ -963,9 +963,6 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
   const originalNoPrintDisplays = noPrintElements.map(el => el.style.display);
 
   try {
-    // Oculta botões e controles de interação somente durante a captura do PDF.
-    noPrintElements.forEach(el => el.style.display = "none");
-    
     // Construir detalhamento do PDF
     const pdfDetail = buildPdfDetailRows();
     
@@ -974,6 +971,7 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
       throw new Error("Sem dados para exportar. Verifique se o filtro tem registros.");
     }
 
+    // Modificar a página para mostrar os dados do PDF
     detailBody.innerHTML = pdfDetail.html;
     detailTitle.textContent = "Detalhamento dos carregamentos — último dia";
     detailSubtitle.textContent = pdfDetail.detailDate
@@ -981,15 +979,17 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
       : `Sem lançamentos disponíveis ${pdfDetail.monthLabel}`;
     detailTotal.textContent = `${pdfDetail.count} registros • ${fmtT(pdfDetail.qty)}`;
 
-    // Expande o detalhamento para que todos os lançamentos do último dia
-    // apareçam no PDF, sem o limite de altura usado na visualização da página.
+    // Remover overflow para que html2canvas capture tudo
     detailScroller.className = "overflow-visible";
-
-    // Aguarda o navegador aplicar as alterações antes de capturar.
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     
-    // Adiciona delay extra para garantir que html2canvas capture tudo
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Garantir que noPrintElements não ocupem espaço (display: none não remove do flow)
+    noPrintElements.forEach(el => el.style.display = "none");
+
+    // Aguarda múltiplos frames para garantir que o browser renderizou tudo
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     if (!window.html2canvas || !window.jspdf) {
       throw new Error("Bibliotecas de PDF não carregadas. Recarregue a página.");
@@ -1002,21 +1002,30 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
       throw new Error("Dashboard não encontrado na página.");
     }
 
+    // Verificar se o node tem dimensões válidas
+    if (node.offsetWidth === 0 || node.offsetHeight === 0) {
+      throw new Error("Dashboard tem dimensões inválidas (width ou height = 0).");
+    }
+
     const canvas = await html2canvas(node, {
-      scale: 1.5,
+      scale: 1,
       useCORS: true,
       backgroundColor: "#ffffff",
-      windowWidth: node.scrollWidth,
-      windowHeight: node.scrollHeight,
-      logging: false
+      logging: false,
+      allowTaint: true,
+      foreignObjectRendering: false
     });
+
+    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+      throw new Error("Canvas renderizado com dimensões inválidas.");
+    }
 
     const img = canvas.toDataURL("image/jpeg", 0.92);
     const pdf = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
     const imgW = pageW;
-    const imgH = canvas.height * imgW / canvas.width;
+    const imgH = (canvas.height * imgW) / canvas.width;
 
     let heightLeft = imgH;
     let position = 0;
@@ -1036,7 +1045,7 @@ document.getElementById("pdfBtn").addEventListener("click", async () => {
     
   } catch (err) {
     console.error("Erro ao gerar PDF:", err);
-    alert("Erro ao gerar PDF: " + err.message);
+    alert("Erro ao gerar PDF: " + err.message + "\n\nVerifique o console (F12) para mais detalhes.");
     
   } finally {
     // Restaura a página exatamente como estava antes da exportação.

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Grupo Minas Port | Dashboard CSN</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -23,486 +25,923 @@
     .kpi-accent { border-top: 4px solid var(--mp-lime); }
     .btn-primary { background: var(--mp-lime); color: #1f2937; font-weight: 800; }
     .btn-primary:hover { background: #a9c513; }
-    .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
-    .btn-secondary { background: #e5e7eb; color: #1f2937; font-weight: 600; }
-    .btn-secondary:hover { background: #d1d5db; }
-    .btn-secondary.active { background: var(--mp-lime); color: #1f2937; }
     .btn-dark { background: var(--mp-black); color: white; }
     .btn-dark:hover { background: #111827; }
-    .btn-dark:disabled { background: #999; cursor: not-allowed; }
     .progress-track { background:#e5e7eb; border-radius:999px; overflow:hidden; height:8px; }
     .progress-fill { background:linear-gradient(90deg,var(--mp-lime-dark),var(--mp-lime)); height:100%; border-radius:999px; }
     .table-head { background: #242424; color: white; }
     .sticky-head thead th { position: sticky; top: 0; z-index: 4; }
-    .tab-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-    .tab-btn { padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+    .month-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .month-tab { padding: 8px 16px; border-radius: 8px; border: 1px solid #d1d5db; background: white; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+    .month-tab:hover { background: #f3f4f6; }
+    .month-tab.active { background: #b8d51b; color: white; border-color: #b8d51b; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
-    .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-    .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-    .loading-spinner {
-      border: 4px solid #e5e7eb;
-      border-top: 4px solid var(--mp-lime);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .status-badge { 
-      display: inline-block; 
-      padding: 4px 12px; 
-      border-radius: 20px; 
-      font-size: 12px; 
-      font-weight: 600;
-    }
-    .status-online { background: #dcfce7; color: #166534; }
-    .status-offline { background: #fee2e2; color: #991b1b; }
     @media print {
       .no-print { display: none !important; }
       body { background: white; }
       .card { box-shadow: none; }
+      .month-tabs { display: none; }
     }
   </style>
 </head>
 <body class="min-h-screen">
   <div id="dashboard" class="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
-    <!-- HEADER -->
     <header class="card overflow-hidden mb-6">
       <div class="bg-[#242424] px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div class="flex items-center gap-5">
-          <svg class="w-10 h-10 text-[#b8d51b]" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M11 3a1 1 0 10-2 0 1 1 0 002 0zm0 6a1 1 0 10-2 0 1 1 0 002 0zm0 6a1 1 0 10-2 0 1 1 0 002 0z"/>
-            <path d="M13 3a8 8 0 100 16 8 8 0 000-16zM1 11a10 10 0 1120 0 10 10 0 01-20 0z"/>
-          </svg>
-          <div>
-            <h1 class="text-xl font-bold text-white">Grupo Minas Port</h1>
-            <p class="text-xs text-gray-400">Dashboard CSN - Pedidos e Saldos</p>
+          <img src="data:image/png;base64,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fJN9+/YZ4dHy26tXL9q1a8cHH3zAwYMHGTJkCM2aNePnn382NIaQkBDuueceDh06xPbt2xk5ciR+fn6muKSUfPnll/j6+tKnTx+TX0FBAc899xxSSiwWC3FxcfTt25fmzZvj7+9PZmYmCxcuZMOGDdSuXZu7774bi8VCUVERp0+fZvv27ezatYuCggIjTovFwj/+8Q8CAwNZsWIF33//vSF8HTp0oHv37kbaBw8eZNu2bRw9etQUB0BcXBwjRozAYrHwySefcODAAcMvNDSU/v3706FDB6xWK4cOHWL69OmcP3/eFEdF+PrB2BesRNT63VimW8B1oVZd3kvw+55xDwKulq5rB9l60iCuP/6+oZoRzqKN155EuhQpJZmZmbz77rssWrTob6OOe6I8zcQgPDycF196kWHDhnEq6xSHjxwmOioau92Ooij06NGDDz74gOSWyezevRsfHx9efPFFHn/8cXx8fBBC0KRJE3r37k2NGjWMeIUQtGzZkp49exISEmK4N2rUiNTUVAICSl95ExERwfTp03n66acJDg7m4MGDWK1WbrnlFoQQNG/enDfeeIP27duzb98+FEXhqaeeYuLEicYbLZs3b05qaioxMTE4HA4cDgc2W+lhgdtuu43XXnuN2NhYdu7cCWDKj44QgsaNG9O7d2/CwsIQQtCiRQv69OnD+PHjiY2NBcDPz4/OnTvTrFkzrFYrwcHBRERE0LFjR7p3705MTAyhoaE4HA7i4+Pp1asXderUMeVLT69Dhw6888473HnnnZw5c4atW7fidDpp2LAhAGFhYaSmppKSkkJoaCipqanMmTOHCRMmGKOp3gEOHz6c3r17M378+NL91Jpf3bp16d27N4mJiURFRXHffffx4YcfMnHiRAIDA43nB2jdujWDBg1i4MCBtG7d2pTG5MmTGTt2LBcvXuTXX3+ldu3a+Pr6mu6vDGEpHbhL9W/t5J32P8YrOiUCiSIlQsrSDsBV9qQFVAd2mpAY+Q+a17sHP0dUqQZAcaXH7AoKCli4cCEPPvjg31640SYhFRIVFUWTJk1Yu3Ytjz/2OGg9nJSS4OBghg4dip+fH4888gibN28mNDSUmTNnkprakzVr1rBx40aEEEZj0PHk5uouhEBRFEaPHk1KSgrp6ek888wzFBcXG2EtFgsvvfQSISEhjBw50hDwefPmMWDAAL74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hBBs3brVqDgpJefOnSMjI4PMzEzDACW1+euJEyd44oknyMrKMuaeVUVKya5du8jIyGDUqFHY7Xb3IBWSnZ1NZmYmGRkZnD9/Hiklu3fvRmirBGgC/8svvxidmiu63/z58/Hz82Po0KEAREREkJycTFFREf369aN///6EhISgKIoxFXDHarXSp08fhBDs2bMHgKZNm+Lv74+/vz99+/YlNTUVPz8/FEUhJSUFoRkbCwsL+fHHH/nss8+QUpKUlOQefYVYrdYynde1JCcnh/T0dO666y6+++47CgoKrlvB1qm0NAMDA2nerDk2m43AwEDCwsPIzcslOzubc+fOsWvXLqpXr86tt96K3W6nUaNG3HTTTeTm5rJlyxZTAUZFRZGQkEBCQgLBwcFs3boVm81G+/btsdvtREdH06ZNG7KyssjNzeXChQusWLECu93OmDFjSElJweFwEBYWRlJSEkePHmXjxo3UrVuXvn37YrfbqVOnDqNGjeLSpUt88cUXRtpCCKpVq0ZwcDAhISEEB5d+MyolJYXY2FgURaFevXr4+vpy8ODBK6p4KSWnT59m7dq1xMTEmJYDq4Kfnx9BQUGEhIQYApienk5mZibdunVjyJAh+Pn5IYQwdYauSM32kJWVRd++fQkICGDQoEEUFxczbdo0xowZw3333cd9993HwYMH6dKli2kZy8/Pj/j4eEaOHMmdd95JdnY2y5cvx2q1kpycTHFxMePGjTPiee211wBITk7G4XBw8803U61aNex2O1FRUQghyMzMdMlh5ZTOnct2On8UvWwmT57MpEmTjE/wXkkd/12pVMAjIyOZNWsWW7duZc2aNSS1SGLLli38+uuv5Obm8u6775Kbm8s//vEPvv/+ez7++GPCw8OZM2eOsVlEL8znn3+eRYsW8dVXXzFy5EjS09PZu3cvw4cP54cffiAtLY3AwEBWr17N+fPnUVWVzz//nE8++YR69erx3nvvsW3bNlavXs3dd99NSUkJjz/+OCdOnODhhx9m06ZNLFy4kPDwcObOnUtGRgZoFWyxWHjhhRdYu3Yta9asYeXKlQghGD58OEuXLmXbtm18/PHHKIrCK6+84lYKpUgPyz+6hqKqKp988okxZ3YNI7WpgKdGJaVkwoQJrF271shbZGQkZ8+e5dFHHyUnJ4fHH3+c9evXs2XLFpo1a2ZaKtTjRTu+eOjQIUJCQmjRogW9evUiMzOTXbt2cfjwYePasWMH1apVo3Xr1kZ+7r//fhYvXsyDDz4IwDPPPMO2bduw2+0kJyezadMm9u/fb8Tx7bffUlxcTP369QkMDOSll17i+++/Z9OmTdxxxx1kZWXx5ZdfGvmsChaL5ZoKuJSSgoICvvzyS2677TZWr15NUVFRmTq4nql0J1tQUBDdunWjdu3aqKrKocOHWL16NRezS+dnirbTrVOnToSHh3P58mW2b99uqMdCCG688UYaN25sVJ6qqvz8889s27aNiIgIOnfuTM2aNSkuLmbfvn2sX7/eEBQhBFarlZSUFIYNG4a/vz87duxg+/btbNq0CYDY2Fg6dOhAZGQkBQUF7Nq1i82bN1NYWIgQgptuuokGDRoY6UvtbZfz58+nZcuWtGzZksDAQC5fvswPP/zAzp07cbptS9TV0caNG7Ny5UpOnjxJ+/btCQkJYdmyZUZa3bt3Jzo6ml9//ZUNGzYgpcTX15fu3bvj7+9Peno6Fy5cQGgbUNq0aWM8p955LFiwgJycHBRFIS4ujrZt21KzZk1jXrx37142btxIzZo16datG0ePHmX9+vVIKWnbti0NGjRg//79JCQkkJ2dzerVq01GyqZNm9KyZUvjcznJyckIISguLubkyZPs2LGDs2fPIqUkPDyc3r1789NPP7Fr1y5DOIS2ScjHx4e0tDQ6dOhAQkICDoeDjIwMVq5cyZkzZ65ImOrUqcO4ceM82luuhry8PJYsWcL69euvWyNaZVQq4MJl4wYuI5ZrRbuG0xupa2G63q+jh/EUv3tF6P79+vXj0UcfZcWKFUydOtWUh4riKC99d39PeXfFNZw77nlxj8c1ffewrni6zzWcax4ritM1Dvf8uqfpKR7X+Nz9dNzT0ufPrnm8EiwWCzab7ZrNw1VVNUbsK83L9UKlAv5XQFEUYztnYmIi9913H926dfuvrbTrHfcO6Grxto8qzMH/CgghiIqKIiUlheDgYF5//XX3IF6uI1w1gD9yefmbjOBevHi5Ov4WI7gXL16uDq+Ae/FyHeMVcC9ermO8Au7Fy3WMV8C9eLmO+f8re8ttPQSPuAAAAABJRU5ErkJggg==" alt="Grupo Minas Port" class="h-14 md:h-16 w-auto rounded-sm" />
+          <div class="border-l border-white/20 pl-5">
+            <h1 class="text-xl md:text-2xl font-black text-white tracking-tight">Dashboard Gerencial de Carregamentos CSN</h1>
+            <p class="text-gray-300 text-sm mt-1">Acompanhamento de volumes, atendimento dos pedidos e evolução operacional</p>
           </div>
         </div>
-        <div class="flex gap-3 items-center flex-wrap">
-          <div class="flex items-center gap-2">
-            <div id="statusBadge" class="status-badge status-offline">🔄 Conectando...</div>
-          </div>
-          <button id="refreshBtn" class="btn-primary px-4 py-2 rounded-lg text-sm">↻ Atualizar</button>
-          <button id="exportPdfBtn" class="btn-dark px-4 py-2 rounded-lg text-sm" disabled>⬇ PDF</button>
+        <div class="no-print flex flex-wrap gap-2">
+          <button id="refreshBtn" class="btn-dark px-4 py-2.5 rounded-xl text-sm font-semibold border border-white/10">Atualizar dados</button>
+          <label class="btn-primary px-4 py-2.5 rounded-xl cursor-pointer text-sm">
+            Carregar arquivo local
+            <input id="fileInput" type="file" accept=".xlsx,.xls" class="hidden" />
+          </label>
+          <button id="prevDayBtn" class="btn-dark px-4 py-2.5 rounded-xl text-sm font-semibold border border-white/10">Dia anterior</button>
+          <button id="clearBtn" class="bg-white px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-800">Limpar filtros</button>
+          <button id="pdfBtn" class="btn-primary px-4 py-2.5 rounded-xl text-sm">Exportar PDF</button>
         </div>
+      </div>
+      <div class="px-5 py-3 bg-white flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div class="flex flex-wrap gap-x-5 gap-y-1">
+          <span><strong>Base:</strong> <span id="basePeriod">—</span></span>
+          <span><strong>Última atualização:</strong> <span id="lastUpdate">—</span></span>
+          <span><strong>Registros:</strong> <span id="recordCount">—</span></span>
+          <span><strong>Fonte dos dados:</strong> <span id="dataSource">—</span></span>
+        </div>
+        <span class="inline-flex items-center gap-2 text-gray-500">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#b8d51b]"></span>
+          Saldos iniciais fixos: 50.000 t
+        </span>
       </div>
     </header>
 
-    <!-- MENSAGENS DE STATUS -->
-    <div id="messages"></div>
+    <div class="month-tabs" id="monthTabsContainer"></div>
 
-    <!-- ÁREA DE CARREGAMENTO -->
-    <div id="loadingArea" class="card p-8 text-center">
-      <div class="loading-spinner mb-4"></div>
-      <p class="text-gray-600">Carregando dados do Google Sheets...</p>
-      <p class="text-sm text-gray-500 mt-2">URL: 🔗 Google Sheets</p>
-    </div>
-
-    <!-- ABAS POR MÊS (OCULTAS ATÉ CARREGAR) -->
-    <div id="tabsArea" style="display: none;">
-      <div class="card mb-6 p-5">
-        <div class="tab-buttons" id="monthTabs"></div>
+    <section class="no-print card p-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+          <label class="text-xs font-bold uppercase tracking-wide text-gray-500">Data inicial</label>
+          <input id="dateFrom" type="date" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#b8d51b]" />
+        </div>
+        <div>
+          <label class="text-xs font-bold uppercase tracking-wide text-gray-500">Data final</label>
+          <input id="dateTo" type="date" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#b8d51b]" />
+        </div>
+        <div>
+          <label class="text-xs font-bold uppercase tracking-wide text-gray-500">Unidade</label>
+          <select id="unitFilter" class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#b8d51b]">
+            <option value="">Todas as unidades</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button id="applyBtn" class="btn-primary w-full py-2.5 rounded-xl">Aplicar filtros</button>
+        </div>
       </div>
+    </section>
 
-      <!-- CONTEÚDO POR MÊS -->
-      <div id="monthsContainer"></div>
-    </div>
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+      <div class="card kpi-accent p-5">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Volume inicial</p>
+        <div id="kpiInitial" class="text-3xl font-black mt-2">—</div>
+        <p class="text-sm text-gray-500 mt-2">Pedidos fixos consolidados</p>
+      </div>
+      <div class="card kpi-accent p-5">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Volume carregado</p>
+        <div id="kpiLoaded" class="text-3xl font-black mt-2">—</div>
+        <p id="kpiLoadedSub" class="text-sm text-gray-500 mt-2">—</p>
+      </div>
+      <div class="card kpi-accent p-5">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Saldo a carregar</p>
+        <div id="kpiBalance" class="text-3xl font-black mt-2">—</div>
+        <p class="text-sm text-gray-500 mt-2">Saldo dos pedidos</p>
+      </div>
+      <div class="card kpi-accent p-5">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Atendimento</p>
+        <div id="kpiService" class="text-3xl font-black mt-2">—</div>
+        <div class="progress-track mt-3"><div id="kpiProgress" class="progress-fill" style="width:0%"></div></div>
+      </div>
+      <div class="card kpi-accent p-5">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Dia anterior</p>
+        <div id="kpiPrevDay" class="text-3xl font-black mt-2">—</div>
+        <p id="kpiPrevDayDate" class="text-sm text-gray-500 mt-2">—</p>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-6">
+      <div class="card p-5 xl:col-span-2">
+        <div class="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-lg font-black">Evolução diária dos carregamentos</h2>
+            <p id="dailySubtitle" class="text-sm text-gray-500">Quantidade faturada em toneladas — últimos 7 dias</p>
+          </div>
+        </div>
+        <div class="h-[330px]"><canvas id="dailyChart"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="text-lg font-black">Atendimento dos pedidos</h2>
+        <p class="text-sm text-gray-500 mb-4">Carregado x saldo a carregar</p>
+        <div class="h-[330px]"><canvas id="serviceChart"></canvas></div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-6">
+      <div class="card p-5">
+        <h2 class="text-lg font-black">Volume carregado por unidade</h2>
+        <p class="text-sm text-gray-500 mb-4">Comparativo acumulado por unidade</p>
+        <div class="h-[330px]"><canvas id="unitChart"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="text-lg font-black">Previsto x Realizado</h2>
+        <p id="prevDaySubtitle" class="text-sm text-gray-500 mb-4">Programado x carregado no dia anterior, por unidade</p>
+        <div class="h-[330px]"><canvas id="prevDayChart"></canvas></div>
+        <p id="prevDayJustification" class="hidden text-[10px] leading-snug text-gray-400 mt-3 text-center italic"></p>
+      </div>
+    </section>
+
+    <section class="card overflow-hidden mb-6">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-black">Posição consolidada por unidade</h2>
+        <p class="text-sm text-gray-500">Saldos iniciais fixos, carregado, saldo restante e percentual de atendimento</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="table-head">
+            <tr>
+              <th class="text-left px-5 py-3">Unidade</th>
+              <th class="text-right px-5 py-3">Saldo inicial</th>
+              <th class="text-right px-5 py-3">Carregado</th>
+              <th class="text-right px-5 py-3">Saldo</th>
+              <th class="text-right px-5 py-3">% atendido</th>
+              <th class="text-right px-5 py-3">Dia anterior</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex flex-wrap justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-black">Detalhamento dos carregamentos</h2>
+          <p class="text-sm text-gray-500">Registros conforme filtros aplicados</p>
+        </div>
+        <div id="detailTotal" class="text-sm font-bold text-gray-700"></div>
+      </div>
+      <div class="overflow-auto max-h-[540px] sticky-head">
+        <table class="w-full text-sm whitespace-nowrap">
+          <thead class="table-head">
+            <tr>
+              <th class="text-left px-4 py-3">Data</th>
+              <th class="text-left px-4 py-3">Unidade</th>
+              <th class="text-left px-4 py-3">NF</th>
+              <th class="text-left px-4 py-3">Produto</th>
+              <th class="text-right px-4 py-3">Quantidade (t)</th>
+              <th class="text-right px-4 py-3">Valor unitário</th>
+              <th class="text-right px-4 py-3">Valor mercadoria</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-gray-400 py-6">
+      Grupo Minas Port • Dashboard gerencial CSN
+    </footer>
   </div>
 
-  <script>
-    // Configuração
-    const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1uBHSngHmnOWt23d0UNvBiZmFj_APglmmfvwOPhefzJaqIBaoP7KLK_-ipCgQKjB13TTymmCDO1dq/pub?output=xlsx";
-    
-    // Estado global
-    let allMonthsData = {};
-    let currentMonth = null;
-    let lastUpdateTime = null;
+<script>
+const INITIAL_BALANCES = {
+  "BARROSO": 12787,
+  "VOLTA REDONDA": 2050,
+  "ARCOS": 19465,
+  "PEDRO LEOPOLDO": 10861,
+  "MONTES CLAROS": 6552,
+  "CANTAGALO": 3285
+};
 
-    // Funções de formatação
-    const fmtN = v => new Intl.NumberFormat("pt-BR", {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(v);
-    const fmtT = v => new Intl.NumberFormat("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(v) + " t";
+const UNIT_ORDER = ["BARROSO","VOLTA REDONDA","ARCOS","PEDRO LEOPOLDO","MONTES CLAROS","CANTAGALO"];
 
-    // Mapeamento de unidades
-    const unitShortNames = {
-      "ARCOS": "Arcos",
-      "BARROSO": "Barroso",
-      "CANTAGALO": "Cantagalo",
-      "MONTES CLAROS": "Montes Claros",
-      "PEDRO LEOPOLDO": "P. Leopoldo",
-      "VOLTA REDONDA": "V. Redonda"
+const ALIASES = {
+  "CSN - MOC": "MONTES CLAROS",
+  "CSN - P. LEOPOLDO": "PEDRO LEOPOLDO",
+  "CSN - V. REDONDA": "VOLTA REDONDA",
+  "CSN - CTG": "CANTAGALO",
+  "CSN - BARROSO": "BARROSO",
+  "CSN - ARCOS": "ARCOS"
+};
+
+let allData = [{"date": "2026-08-04", "unit": "PEDRO LEOPOLDO", "note": "202618", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.55, "unitPrice": 1035.81, "value": 50288.58}, {"date": "2026-08-05", "unit": "MONTES CLAROS", "note": "202619", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 45.5, "unitPrice": 1126.53, "value": 51257.12}, {"date": "2026-08-05", "unit": "MONTES CLAROS", "note": "202620", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.63, "unitPrice": 1126.53, "value": 53656.62}, {"date": "2026-08-05", "unit": "ARCOS", "note": "202621", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.27, "unitPrice": 1050.88, "value": 39166.3}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202622", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.92, "unitPrice": 943.47, "value": 45211.08}, {"date": "2026-08-05", "unit": "MONTES CLAROS", "note": "202623", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.59, "unitPrice": 1126.53, "value": 55864.62}, {"date": "2026-08-05", "unit": "PEDRO LEOPOLDO", "note": "202624", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 33.67, "unitPrice": 1035.81, "value": 34875.72}, {"date": "2026-08-05", "unit": "PEDRO LEOPOLDO", "note": "202625", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 34.31, "unitPrice": 1035.81, "value": 35538.64}, {"date": "2026-08-05", "unit": "MONTES CLAROS", "note": "202626", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.47, "unitPrice": 1126.53, "value": 55729.44}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202627", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.8, "unitPrice": 943.47, "value": 46041.34}, {"date": "2026-08-05", "unit": "ARCOS", "note": "202628", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.64, "unitPrice": 1050.88, "value": 39555.12}, {"date": "2026-08-05", "unit": "ARCOS", "note": "202629", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.55, "unitPrice": 1050.88, "value": 51020.22}, {"date": "2026-08-05", "unit": "MONTES CLAROS", "note": "202630", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.3, "unitPrice": 1126.53, "value": 53284.87}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202631", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 32.83, "unitPrice": 943.47, "value": 30974.12}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202632", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.2, "unitPrice": 943.47, "value": 35097.08}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202633", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 29.2, "unitPrice": 943.47, "value": 27549.32}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202634", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 29.33, "unitPrice": 943.47, "value": 27671.98}, {"date": "2026-08-05", "unit": "ARCOS", "note": "202635", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.69, "unitPrice": 1050.88, "value": 41709.43}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202636", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.0, "unitPrice": 943.47, "value": 34908.39}, {"date": "2026-08-05", "unit": "BARROSO", "note": "202637", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.16, "unitPrice": 943.47, "value": 45437.52}, {"date": "2026-08-05", "unit": "MONTES CLAROS", "note": "202638", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.26, "unitPrice": 1126.53, "value": 55492.87}, {"date": "2026-08-06", "unit": "BARROSO", "note": "202639", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.59, "unitPrice": 943.47, "value": 33578.1}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202640", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 40.05, "unitPrice": 1050.88, "value": 42087.74}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202641", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.96, "unitPrice": 1050.88, "value": 39891.4}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202642", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.03, "unitPrice": 1050.88, "value": 41015.85}, {"date": "2026-08-06", "unit": "BARROSO", "note": "202643", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.54, "unitPrice": 943.47, "value": 33530.92}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202644", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.89, "unitPrice": 1050.88, "value": 37716.08}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202645", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.44, "unitPrice": 1050.88, "value": 41446.71}, {"date": "2026-08-06", "unit": "BARROSO", "note": "202646", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 50.38, "unitPrice": 943.47, "value": 47532.02}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202647", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.34, "unitPrice": 1126.53, "value": 54456.46}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202648", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.28, "unitPrice": 1126.53, "value": 55515.4}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202649", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.28, "unitPrice": 1126.53, "value": 53262.34}, {"date": "2026-08-06", "unit": "BARROSO", "note": "202650", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.26, "unitPrice": 943.47, "value": 33266.75}, {"date": "2026-08-06", "unit": "BARROSO", "note": "202651", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.75, "unitPrice": 943.47, "value": 45050.69}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202652", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.43, "unitPrice": 1126.53, "value": 55684.38}, {"date": "2026-08-06", "unit": "PEDRO LEOPOLDO", "note": "202653", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.82, "unitPrice": 1035.81, "value": 49532.43}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202654", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.02, "unitPrice": 1126.53, "value": 43957.2}, {"date": "2026-08-06", "unit": "BARROSO", "note": "202655", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 36.3, "unitPrice": 943.47, "value": 34247.96}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202656", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.25, "unitPrice": 1050.88, "value": 41247.04}, {"date": "2026-08-06", "unit": "ARCOS", "note": "202657", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.04, "unitPrice": 1050.88, "value": 41026.36}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202658", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.35, "unitPrice": 1126.53, "value": 54467.73}, {"date": "2026-08-06", "unit": "MONTES CLAROS", "note": "202660", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.3, "unitPrice": 1126.53, "value": 53284.87}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202662", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.54, "unitPrice": 1035.81, "value": 50278.22}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202663", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.34, "unitPrice": 1126.53, "value": 54456.46}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202664", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.4, "unitPrice": 943.47, "value": 46607.42}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202665", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 40.35, "unitPrice": 1035.81, "value": 41794.93}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202666", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.54, "unitPrice": 1035.81, "value": 38884.31}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202667", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.41, "unitPrice": 943.47, "value": 45673.38}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202668", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.24, "unitPrice": 1126.53, "value": 54343.81}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202669", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.73, "unitPrice": 1035.81, "value": 39081.11}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202670", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.1, "unitPrice": 943.47, "value": 44437.44}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202671", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.42, "unitPrice": 1035.81, "value": 50153.92}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202672", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.81, "unitPrice": 1035.81, "value": 37092.36}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202673", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.56, "unitPrice": 1035.81, "value": 49263.12}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202674", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.77, "unitPrice": 1126.53, "value": 53814.34}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202675", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.64, "unitPrice": 1035.81, "value": 40023.7}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202676", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.26, "unitPrice": 1035.81, "value": 49988.19}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202677", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.43, "unitPrice": 1035.81, "value": 36698.75}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202678", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.52, "unitPrice": 1126.53, "value": 43393.94}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202679", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.75, "unitPrice": 1126.53, "value": 53791.81}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202680", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.41, "unitPrice": 943.47, "value": 45673.38}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202681", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.56, "unitPrice": 943.47, "value": 33549.79}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202685", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.87, "unitPrice": 1035.81, "value": 40261.93}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202686", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.85, "unitPrice": 1035.81, "value": 37133.79}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202687", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.1, "unitPrice": 1035.81, "value": 48786.65}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202688", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 34.94, "unitPrice": 1035.81, "value": 36191.2}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202689", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.49, "unitPrice": 1126.53, "value": 43360.14}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202690", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.42, "unitPrice": 1126.53, "value": 54546.58}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202691", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 36.88, "unitPrice": 1035.81, "value": 38200.67}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202692", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 32.54, "unitPrice": 943.47, "value": 30700.51}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202693", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.96, "unitPrice": 1126.53, "value": 54028.38}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202694", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.08, "unitPrice": 943.47, "value": 34983.87}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202695", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.87, "unitPrice": 1126.53, "value": 43788.22}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202696", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 36.64, "unitPrice": 943.47, "value": 34568.74}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202697", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.56, "unitPrice": 1126.53, "value": 53577.77}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202699", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.07, "unitPrice": 1126.53, "value": 55278.83}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202700", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 29.75, "unitPrice": 943.47, "value": 28068.23}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202701", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.7, "unitPrice": 1035.81, "value": 39050.04}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202702", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 34.69, "unitPrice": 1035.81, "value": 35932.25}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202703", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.53, "unitPrice": 1126.53, "value": 54670.5}, {"date": "2026-08-07", "unit": "PEDRO LEOPOLDO", "note": "202704", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.77, "unitPrice": 1035.81, "value": 40158.35}, {"date": "2026-08-07", "unit": "MONTES CLAROS", "note": "202705", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.64, "unitPrice": 1126.53, "value": 55920.95}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202706", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 28.99, "unitPrice": 943.47, "value": 27351.2}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202707", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 32.11, "unitPrice": 943.47, "value": 30294.82}, {"date": "2026-08-07", "unit": "BARROSO", "note": "202708", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 28.09, "unitPrice": 943.47, "value": 26502.07}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202710", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.09, "unitPrice": 943.47, "value": 43484.53}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202711", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.9, "unitPrice": 943.47, "value": 33870.57}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202712", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.52, "unitPrice": 1126.53, "value": 53532.71}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202713", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.64, "unitPrice": 1035.81, "value": 40023.7}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202714", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.66, "unitPrice": 1035.81, "value": 40044.41}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202717", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.18, "unitPrice": 943.47, "value": 45456.38}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202718", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.31, "unitPrice": 943.47, "value": 43692.1}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202719", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 40.03, "unitPrice": 1126.53, "value": 45095.0}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202720", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.22, "unitPrice": 1126.53, "value": 54321.28}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202721", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 45.73, "unitPrice": 1126.53, "value": 51516.22}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202722", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.13, "unitPrice": 943.47, "value": 35031.04}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202724", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.61, "unitPrice": 1126.53, "value": 40115.73}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202725", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 34.87, "unitPrice": 1035.81, "value": 36118.69}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202726", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 45.46, "unitPrice": 943.47, "value": 42890.15}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202727", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.04, "unitPrice": 943.47, "value": 45324.3}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202728", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.16, "unitPrice": 1035.81, "value": 50920.42}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202729", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.23, "unitPrice": 1035.81, "value": 49957.12}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202730", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 28.54, "unitPrice": 943.47, "value": 26926.63}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202731", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.87, "unitPrice": 943.47, "value": 45163.91}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202732", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.34, "unitPrice": 1035.81, "value": 36605.53}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202733", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.34, "unitPrice": 943.47, "value": 35229.17}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202734", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 36.83, "unitPrice": 1035.81, "value": 38148.88}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202735", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.77, "unitPrice": 943.47, "value": 35634.86}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202736", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.6, "unitPrice": 1126.53, "value": 53622.83}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202737", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.13, "unitPrice": 1035.81, "value": 50889.35}, {"date": "2026-08-08", "unit": "BARROSO", "note": "202738", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.45, "unitPrice": 943.47, "value": 36276.42}, {"date": "2026-08-08", "unit": "MONTES CLAROS", "note": "202739", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.29, "unitPrice": 1126.53, "value": 54400.13}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202740", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.27, "unitPrice": 1035.81, "value": 49998.55}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202741", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.99, "unitPrice": 1035.81, "value": 37278.8}, {"date": "2026-08-08", "unit": "PEDRO LEOPOLDO", "note": "202742", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.65, "unitPrice": 1035.81, "value": 50392.16}, {"date": "2026-08-09", "unit": "BARROSO", "note": "202743", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.91, "unitPrice": 943.47, "value": 46145.12}, {"date": "2026-08-09", "unit": "BARROSO", "note": "202744", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.21, "unitPrice": 943.47, "value": 43597.75}, {"date": "2026-08-09", "unit": "BARROSO", "note": "202745", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.14, "unitPrice": 943.47, "value": 44475.18}, {"date": "2026-08-09", "unit": "BARROSO", "note": "202746", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.7, "unitPrice": 943.47, "value": 44060.05}, {"date": "2026-08-09", "unit": "BARROSO", "note": "202747", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.13, "unitPrice": 943.47, "value": 43522.27}, {"date": "2026-08-10", "unit": "PEDRO LEOPOLDO", "note": "202748", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.19, "unitPrice": 1035.81, "value": 39557.58}, {"date": "2026-08-10", "unit": "BARROSO", "note": "202749", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.85, "unitPrice": 943.47, "value": 33823.4}, {"date": "2026-08-10", "unit": "BARROSO", "note": "202750", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.46, "unitPrice": 943.47, "value": 45720.56}, {"date": "2026-08-10", "unit": "MONTES CLAROS", "note": "202751", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.28, "unitPrice": 1126.53, "value": 55515.4}, {"date": "2026-08-10", "unit": "MONTES CLAROS", "note": "202752", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.54, "unitPrice": 1126.53, "value": 53555.24}, {"date": "2026-08-10", "unit": "BARROSO", "note": "202753", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.43, "unitPrice": 943.47, "value": 37201.02}, {"date": "2026-08-10", "unit": "BARROSO", "note": "202754", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.43, "unitPrice": 943.47, "value": 45692.25}, {"date": "2026-08-10", "unit": "BARROSO", "note": "202755", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.1, "unitPrice": 943.47, "value": 46324.38}, {"date": "2026-08-10", "unit": "PEDRO LEOPOLDO", "note": "202756", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.0, "unitPrice": 1035.81, "value": 38324.97}, {"date": "2026-08-11", "unit": "PEDRO LEOPOLDO", "note": "202757", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.11, "unitPrice": 1035.81, "value": 47761.2}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202758", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.7, "unitPrice": 943.47, "value": 33681.88}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202760", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 28.42, "unitPrice": 943.47, "value": 26813.42}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202762", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.28, "unitPrice": 943.47, "value": 44607.26}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202763", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 28.73, "unitPrice": 943.47, "value": 27105.89}, {"date": "2026-08-11", "unit": "PEDRO LEOPOLDO", "note": "202764", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.71, "unitPrice": 1035.81, "value": 49418.5}, {"date": "2026-08-11", "unit": "PEDRO LEOPOLDO", "note": "202765", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.5, "unitPrice": 1035.81, "value": 51272.6}, {"date": "2026-08-11", "unit": "PEDRO LEOPOLDO", "note": "202767", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.46, "unitPrice": 1035.81, "value": 36729.82}, {"date": "2026-08-11", "unit": "PEDRO LEOPOLDO", "note": "202768", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.99, "unitPrice": 1035.81, "value": 49708.52}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202769", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.15, "unitPrice": 943.47, "value": 45428.08}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202770", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.95, "unitPrice": 943.47, "value": 35804.69}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202771", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.0, "unitPrice": 943.47, "value": 35851.86}, {"date": "2026-08-11", "unit": "MONTES CLAROS", "note": "202772", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.48, "unitPrice": 1126.53, "value": 54614.17}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202773", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.49, "unitPrice": 943.47, "value": 33483.75}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202775", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.41, "unitPrice": 943.47, "value": 37182.15}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202776", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.08, "unitPrice": 943.47, "value": 33096.93}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202777", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 36.24, "unitPrice": 943.47, "value": 34191.35}, {"date": "2026-08-11", "unit": "MONTES CLAROS", "note": "202778", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.38, "unitPrice": 1126.53, "value": 53374.99}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202779", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.65, "unitPrice": 943.47, "value": 44012.88}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202780", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 39.0, "unitPrice": 943.47, "value": 36795.33}, {"date": "2026-08-11", "unit": "BARROSO", "note": "202781", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 28.89, "unitPrice": 943.47, "value": 27256.85}, {"date": "2026-08-12", "unit": "PEDRO LEOPOLDO", "note": "202782", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.24, "unitPrice": 1035.81, "value": 48931.66}, {"date": "2026-08-12", "unit": "PEDRO LEOPOLDO", "note": "202783", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.57, "unitPrice": 1035.81, "value": 49273.48}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202784", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 31.34, "unitPrice": 943.47, "value": 29568.35}, {"date": "2026-08-12", "unit": "MONTES CLAROS", "note": "202785", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.53, "unitPrice": 1126.53, "value": 54670.5}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202786", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 35.64, "unitPrice": 943.47, "value": 33625.27}, {"date": "2026-08-12", "unit": "PEDRO LEOPOLDO", "note": "202787", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.32, "unitPrice": 1035.81, "value": 50050.34}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202788", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.74, "unitPrice": 943.47, "value": 45984.73}, {"date": "2026-08-12", "unit": "PEDRO LEOPOLDO", "note": "202789", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 48.3, "unitPrice": 1035.81, "value": 50029.62}, {"date": "2026-08-12", "unit": "MONTES CLAROS", "note": "202790", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 49.63, "unitPrice": 1126.53, "value": 55909.68}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202791", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 37.07, "unitPrice": 943.47, "value": 34974.43}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202792", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 41.07, "unitPrice": 943.47, "value": 38748.31}, {"date": "2026-08-12", "unit": "PEDRO LEOPOLDO", "note": "202793", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 47.9, "unitPrice": 1035.81, "value": 49615.3}, {"date": "2026-08-12", "unit": "MONTES CLAROS", "note": "202794", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 38.3, "unitPrice": 1126.53, "value": 43146.1}, {"date": "2026-08-12", "unit": "MONTES CLAROS", "note": "202795", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 46.95, "unitPrice": 1126.53, "value": 52890.58}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202796", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 29.66, "unitPrice": 943.47, "value": 27983.32}, {"date": "2026-08-12", "unit": "BARROSO", "note": "202797", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 18.0, "ipi": 2.6, "qty": 31.29, "unitPrice": 943.47, "value": 29521.18}, {"date": "2026-08-05", "unit": "CANTAGALO", "note": "37135", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 37.75, "unitPrice": 898.27, "value": 33909.69}, {"date": "2026-08-05", "unit": "CANTAGALO", "note": "37136", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.37, "unitPrice": 898.27, "value": 28178.73}, {"date": "2026-08-05", "unit": "CANTAGALO", "note": "37137", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.62, "unitPrice": 898.27, "value": 28403.3}, {"date": "2026-08-05", "unit": "CANTAGALO", "note": "37138", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.51, "unitPrice": 898.27, "value": 28304.49}, {"date": "2026-08-05", "unit": "CANTAGALO", "note": "37139", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 30.85, "unitPrice": 898.27, "value": 27711.63}, {"date": "2026-08-05", "unit": "VOLTA REDONDA", "note": "37140", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 38.06, "unitPrice": 1001.58, "value": 38120.13}, {"date": "2026-08-05", "unit": "CANTAGALO", "note": "37141", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 49.63, "unitPrice": 898.27, "value": 44581.14}, {"date": "2026-08-06", "unit": "CANTAGALO", "note": "37142", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 48.87, "unitPrice": 898.27, "value": 43898.45}, {"date": "2026-08-06", "unit": "CANTAGALO", "note": "37143", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.75, "unitPrice": 898.27, "value": 29418.34}, {"date": "2026-08-06", "unit": "CANTAGALO", "note": "37144", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 38.63, "unitPrice": 898.27, "value": 34700.17}, {"date": "2026-08-06", "unit": "CANTAGALO", "note": "37145", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 30.57, "unitPrice": 898.27, "value": 27460.11}, {"date": "2026-08-06", "unit": "VOLTA REDONDA", "note": "37146", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.5, "unitPrice": 1001.58, "value": 36557.67}, {"date": "2026-08-07", "unit": "VOLTA REDONDA", "note": "37147", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 49.12, "unitPrice": 1001.58, "value": 49197.61}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37148", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 30.75, "unitPrice": 898.27, "value": 27621.8}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37149", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.75, "unitPrice": 898.27, "value": 29418.34}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37150", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 37.97, "unitPrice": 898.27, "value": 34107.31}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37151", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 33.79, "unitPrice": 898.27, "value": 30352.54}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37152", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.19, "unitPrice": 898.27, "value": 28915.31}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37153", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 47.27, "unitPrice": 898.27, "value": 42461.22}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37154", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 49.91, "unitPrice": 898.27, "value": 44832.66}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37155", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 48.97, "unitPrice": 898.27, "value": 43988.28}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37156", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 47.42, "unitPrice": 898.27, "value": 42595.96}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37157", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 37.9, "unitPrice": 898.27, "value": 34044.43}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37158", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.23, "unitPrice": 898.27, "value": 28951.24}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37159", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 30.44, "unitPrice": 898.27, "value": 27343.34}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37160", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.81, "unitPrice": 898.27, "value": 28573.97}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37161", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 37.21, "unitPrice": 898.27, "value": 33424.63}, {"date": "2026-08-07", "unit": "CANTAGALO", "note": "37162", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.55, "unitPrice": 898.27, "value": 29238.69}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37163", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.48, "unitPrice": 898.27, "value": 28277.54}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37164", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.64, "unitPrice": 898.27, "value": 29319.53}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37165", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.45, "unitPrice": 898.27, "value": 28250.59}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37166", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 33.42, "unitPrice": 898.27, "value": 30020.18}, {"date": "2026-08-08", "unit": "VOLTA REDONDA", "note": "37167", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.05, "unitPrice": 1001.58, "value": 36106.96}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37168", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 35.56, "unitPrice": 898.27, "value": 31942.48}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37169", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.71, "unitPrice": 898.27, "value": 32975.49}, {"date": "2026-08-08", "unit": "CANTAGALO", "note": "37170", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.81, "unitPrice": 898.27, "value": 29472.24}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37172", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.98, "unitPrice": 898.27, "value": 29624.94}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37173", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.5, "unitPrice": 898.27, "value": 28295.5}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37174", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 30.11, "unitPrice": 898.27, "value": 27046.91}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37175", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 35.77, "unitPrice": 898.27, "value": 32131.12}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37176", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.71, "unitPrice": 898.27, "value": 29382.41}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37177", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.22, "unitPrice": 898.27, "value": 28942.26}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37178", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 37.12, "unitPrice": 898.27, "value": 33343.78}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37179", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 37.7, "unitPrice": 898.27, "value": 33864.78}, {"date": "2026-08-10", "unit": "CANTAGALO", "note": "37180", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 33.27, "unitPrice": 898.27, "value": 29885.44}, {"date": "2026-08-11", "unit": "VOLTA REDONDA", "note": "37181", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.98, "unitPrice": 1001.58, "value": 37038.43}, {"date": "2026-08-11", "unit": "VOLTA REDONDA", "note": "37182", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.54, "unitPrice": 1001.58, "value": 36597.73}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37183", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 35.72, "unitPrice": 898.27, "value": 32086.2}, {"date": "2026-08-11", "unit": "VOLTA REDONDA", "note": "37184", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 38.45, "unitPrice": 1001.58, "value": 38510.75}, {"date": "2026-08-11", "unit": "VOLTA REDONDA", "note": "37185", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 38.26, "unitPrice": 1001.58, "value": 38320.45}, {"date": "2026-08-11", "unit": "VOLTA REDONDA", "note": "37186", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 38.28, "unitPrice": 1001.58, "value": 38340.48}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37187", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 34.55, "unitPrice": 898.27, "value": 31035.23}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37188", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.8, "unitPrice": 898.27, "value": 28564.99}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37189", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 27.76, "unitPrice": 898.27, "value": 24935.98}, {"date": "2026-08-11", "unit": "VOLTA REDONDA", "note": "37190", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 40.1, "unitPrice": 1001.58, "value": 40163.36}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37191", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.69, "unitPrice": 898.27, "value": 28466.18}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37192", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.9, "unitPrice": 898.27, "value": 28654.81}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37193", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 39.87, "unitPrice": 898.27, "value": 35814.02}, {"date": "2026-08-11", "unit": "CANTAGALO", "note": "37194", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 35.27, "unitPrice": 898.27, "value": 31681.98}, {"date": "2026-08-12", "unit": "CANTAGALO", "note": "37195", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 28.76, "unitPrice": 898.27, "value": 25834.25}, {"date": "2026-08-12", "unit": "CANTAGALO", "note": "37196", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.29, "unitPrice": 898.27, "value": 32598.22}, {"date": "2026-08-12", "unit": "VOLTA REDONDA", "note": "37197", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 38.34, "unitPrice": 1001.58, "value": 38400.58}, {"date": "2026-08-12", "unit": "CANTAGALO", "note": "37198", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 31.25, "unitPrice": 898.27, "value": 28070.94}, {"date": "2026-08-12", "unit": "CANTAGALO", "note": "37199", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 28.79, "unitPrice": 898.27, "value": 25861.19}, {"date": "2026-08-12", "unit": "CANTAGALO", "note": "37200", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 32.33, "unitPrice": 898.27, "value": 29041.07}, {"date": "2026-08-12", "unit": "CANTAGALO", "note": "37201", "payment": "120 DIAS (VENCIMENTO FIXO DIA 10/20/30)", "product": "COQUE VERDE", "icms": 20.0, "ipi": 2.6, "qty": 36.45, "unitPrice": 898.27, "value": 32741.94}];
+let filteredData = [...allData];
+let charts = {};
+
+// Toneladas programadas para o dia anterior, por unidade (aba "Programado" da planilha),
+// e justificativa quando o programado não foi 100% cumprido. Este objeto é a base local
+// (fallback) usada enquanto os dados ao vivo do Google Sheets ainda não foram carregados
+// ou caso o carregamento remoto falhe; ele é substituído automaticamente pelos dados
+// reais assim que a planilha publicada é lida com sucesso.
+let programado = {
+  "ARCOS": {previsto:1160, finalizado:false, justificativa:"PROBLEMAS NO FORNECIMENTO DE ENERGIA"},
+  "VOLTA REDONDA": {previsto:null, finalizado:true, justificativa:""},
+  "PEDRO LEOPOLDO": {previsto:513, finalizado:false, justificativa:"PROBLEMAS NO FORNECIMENTO DE ENERGIA"},
+  "MONTES CLAROS": {previsto:425, finalizado:false, justificativa:"PROBLEMAS NO FORNECIMENTO DE ENERGIA"},
+  "CANTAGALO": {previsto:105, finalizado:false, justificativa:"PROBLEMAS NO FORNECIMENTO DE ENERGIA"},
+  "BARROSO": {previsto:280, finalizado:false, justificativa:"PROBLEMAS NO FORNECIMENTO DE ENERGIA"}
+};
+
+// Link publicado da planilha do Google Sheets (Arquivo > Compartilhar > Publicar na web,
+// formato .xlsx). O dashboard busca esse link automaticamente ao abrir a página e também
+// quando o botão "Atualizar dados" é clicado — é assim que, hospedado no GitHub Pages,
+// ele se mantém atualizado sem precisar editar o HTML a cada novo dia.
+const REMOTE_XLSX_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1uBHSngHmnOWt23d0UNvBiZmFj_APglmmfvwOPhefzJaqIBaoP7KLK_-ipCgQKjB13TTymmCDO1dq/pub?output=xlsx";
+
+const fmtT = v => new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v) + " t";
+const fmtN = v => new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
+const fmtMoney = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v);
+const fmtPct = v => new Intl.NumberFormat("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1}).format(v) + "%";
+const brDate = iso => iso ? iso.split("-").reverse().join("/") : "—";
+const sum = (arr, key) => arr.reduce((a,r)=>a+(Number(r[key])||0),0);
+
+function normalizeUnit(value) {
+  const raw = String(value ?? "").trim().replace(/\s+/g," ");
+  return ALIASES[raw] || raw.replace(/^CSN\s*-\s*/i,"").trim();
+}
+
+function excelSerialToISO(serial) {
+  const base = new Date(Date.UTC(1899,11,30));
+  const d = new Date(base.getTime() + Number(serial) * 86400000);
+  return d.toISOString().slice(0,10);
+}
+
+function parseExcelDate(value) {
+  if (typeof value === "number") return excelSerialToISO(value);
+  if (value instanceof Date && !isNaN(value)) return value.toISOString().slice(0,10);
+  const s = String(value ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+  const d = new Date(s);
+  return isNaN(d) ? "" : d.toISOString().slice(0,10);
+}
+
+function getDates(data=allData) {
+  return [...new Set(data.map(r=>r.date).filter(Boolean))].sort();
+}
+
+// Data/hora em que a planilha foi efetivamente carregada pelo botão "Atualizar planilha".
+// A base incorporada neste arquivo foi atualizada em 12/08/2026.
+let spreadsheetUpdateTimestamp = "2026-08-12T18:39:00";
+
+function localISODate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function spreadsheetUpdateDate() {
+  return String(spreadsheetUpdateTimestamp || "").slice(0,10);
+}
+
+function previousBaseDate() {
+  // "Dia anterior" significa sempre D-1 da data em que a planilha foi atualizada,
+  // e não a penúltima data existente nos registros da planilha.
+  const updateISO = spreadsheetUpdateDate();
+  if (!updateISO) return "";
+  const [y,m,d] = updateISO.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - 1);
+  return localISODate(dt);
+}
+
+function latestBaseDate() {
+  const dates = getDates(allData);
+  return dates[dates.length-1] || "";
+}
+
+function unitTotals(data) {
+  const out = Object.fromEntries(UNIT_ORDER.map(u=>[u,0]));
+  data.forEach(r => { if (out[r.unit] !== undefined) out[r.unit] += Number(r.qty)||0; });
+  return out;
+}
+
+function renderHeaderMeta() {
+  const dates = getDates(allData);
+  document.getElementById("basePeriod").textContent = dates.length ? `${brDate(dates[0])} a ${brDate(dates[dates.length-1])}` : "—";
+  const updateDateObj = spreadsheetUpdateTimestamp ? new Date(spreadsheetUpdateTimestamp) : null;
+  document.getElementById("lastUpdate").textContent = updateDateObj && !isNaN(updateDateObj)
+    ? updateDateObj.toLocaleString("pt-BR")
+    : "—";
+  document.getElementById("recordCount").textContent = new Intl.NumberFormat("pt-BR").format(allData.length);
+}
+
+function renderKPIs() {
+  const totalInitial = Object.values(INITIAL_BALANCES).reduce((a,b)=>a+b,0);
+  const loaded = sum(filteredData,"qty");
+  const balance = Math.max(totalInitial - loaded, 0);
+  const service = totalInitial ? loaded / totalInitial * 100 : 0;
+  const prev = previousBaseDate();
+  const prevQty = sum(allData.filter(r=>r.date===prev),"qty");
+
+  document.getElementById("kpiInitial").textContent = fmtT(totalInitial);
+  document.getElementById("kpiLoaded").textContent = fmtT(loaded);
+  document.getElementById("kpiLoadedSub").textContent = `${filteredData.length} registros no recorte`;
+  document.getElementById("kpiBalance").textContent = fmtT(balance);
+  document.getElementById("kpiService").textContent = fmtPct(service);
+  document.getElementById("kpiProgress").style.width = Math.min(service,100) + "%";
+  document.getElementById("kpiPrevDay").textContent = fmtT(prevQty);
+  document.getElementById("kpiPrevDayDate").textContent = prev ? brDate(prev) : "Sem data anterior";
+}
+
+function destroyChart(name) {
+  if (charts[name]) { charts[name].destroy(); charts[name]=null; }
+}
+
+function chartDefaults() {
+  Chart.defaults.font.family = "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  Chart.defaults.color = "#4b5563";
+  if (window.ChartDataLabels && !Chart.registry.plugins.get("datalabels")) {
+    Chart.register(ChartDataLabels);
+  }
+}
+
+function chartVolumeLabel(value) {
+  const n = Number(value) || 0;
+  if (n === 0) return "";
+  return new Intl.NumberFormat("pt-BR", {minimumFractionDigits:0,maximumFractionDigits:2}).format(n) + " t";
+}
+
+// Versão sem casas decimais, usada no gráfico "Previsto x Realizado": como ali são duas
+// barras lado a lado por unidade (mais estreitas), um rótulo mais curto reduz a chance de
+// sobreposição entre os números de "Previsto" e "Realizado" quando os valores são próximos.
+function chartVolumeLabelCompact(value) {
+  const n = Math.round(Number(value) || 0);
+  if (n === 0) return "";
+  return new Intl.NumberFormat("pt-BR").format(n) + " t";
+}
+
+function renderCharts() {
+  chartDefaults();
+  const lime = "#b8d51b";
+  const dark = "#2b2b2b";
+  const gray = "#d1d5db";
+  const units = UNIT_ORDER;
+  const totalInitial = Object.values(INITIAL_BALANCES).reduce((a,b)=>a+b,0);
+  const loaded = sum(filteredData,"qty");
+  const allDailyDates = [...new Set(filteredData.map(r=>r.date))].sort();
+  const dates = allDailyDates.slice(-7);
+  const daily = dates.map(d => sum(filteredData.filter(r=>r.date===d),"qty"));
+  const totals = unitTotals(filteredData);
+  const prevDate = previousBaseDate();
+  const prevTotals = unitTotals(allData.filter(r=>r.date===prevDate));
+
+  destroyChart("daily");
+  charts.daily = new Chart(document.getElementById("dailyChart"), {
+    type:"bar",
+    data:{labels:dates.map(brDate),datasets:[{label:"Toneladas",data:daily,backgroundColor:lime,borderColor:"#95ad15",borderWidth:1,borderRadius:7,maxBarThickness:52}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:26}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtT(c.raw)}},datalabels:{display:c=>Number(c.dataset.data[c.dataIndex])>0,anchor:"center",align:"center",rotation:-90,color:"#242424",font:{weight:"bold",size:10,family:"Arial, Helvetica, sans-serif"},formatter:v=>chartVolumeLabelCompact(v),clamp:true}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,grace:"15%",grid:{color:"#eef0f2"},ticks:{callback:v=>new Intl.NumberFormat("pt-BR").format(v)}}}}
+  });
+
+  const dailySubtitleEl = document.getElementById("dailySubtitle");
+  if (dailySubtitleEl) {
+    dailySubtitleEl.textContent = dates.length
+      ? `Quantidade faturada em toneladas — últimos ${dates.length} dias (${brDate(dates[0])} a ${brDate(dates[dates.length-1])})`
+      : "Quantidade faturada em toneladas — últimos 7 dias";
+  }
+
+  destroyChart("service");
+  charts.service = new Chart(document.getElementById("serviceChart"), {
+    type:"doughnut",
+    data:{labels:["Carregado","Saldo"],datasets:[{data:[loaded,Math.max(totalInitial-loaded,0)],backgroundColor:[lime,gray],borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>{const total=c.chart.data.datasets[0].data.reduce((a,b)=>a+(Number(b)||0),0);const pct=total?((Number(c.raw)||0)/total*100):0;return `${c.label}: ${fmtT(c.raw)} (${fmtPct(pct)})`;}}},datalabels:{display:c=>Number(c.dataset.data[c.dataIndex])>0,color:"#242424",font:{weight:"bold",size:11,family:"Arial, Helvetica, sans-serif"},formatter:(v,c)=>{const total=c.chart.data.datasets[0].data.reduce((a,b)=>a+(Number(b)||0),0);const pct=total?((Number(v)||0)/total*100):0;return `${c.chart.data.labels[c.dataIndex]}\n${fmtPct(pct)}\n${chartVolumeLabel(v)}`;},textAlign:"center",anchor:"center",align:"center",clamp:true}}}
+  });
+
+  destroyChart("unit");
+  charts.unit = new Chart(document.getElementById("unitChart"), {
+    type:"bar",
+    data:{labels:units,datasets:[{label:"Carregado",data:units.map(u=>totals[u]),backgroundColor:dark,borderRadius:6,maxBarThickness:42}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:78}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtT(c.raw)}},datalabels:{display:c=>Number(c.dataset.data[c.dataIndex])>0,anchor:"end",align:"left",offset:8,color:"#ffffff",font:{weight:"bold",size:11,family:"Arial, Helvetica, sans-serif"},formatter:v=>chartVolumeLabel(v),clamp:true,clip:false}},scales:{x:{beginAtZero:true,grace:"18%",grid:{color:"#eef0f2"}},y:{grid:{display:false}}}}
+  });
+
+  destroyChart("prev");
+  const prevPrevisto = units.map(u => {
+    const p = programado[u];
+    if (!p || p.finalizado || p.previsto === null || p.previsto === undefined) return prevTotals[u];
+    return p.previsto;
+  });
+  const prevRealizado = units.map(u => prevTotals[u]);
+  charts.prev = new Chart(document.getElementById("prevDayChart"), {
+    type:"bar",
+    data:{labels:units,datasets:[
+      {label:"Previsto",data:prevPrevisto,backgroundColor:dark,borderRadius:6,maxBarThickness:30},
+      {label:"Realizado",data:prevRealizado,backgroundColor:lime,borderRadius:6,maxBarThickness:30}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:26}},plugins:{legend:{display:true,position:"top",labels:{boxWidth:12,font:{size:11,weight:"bold"}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtT(c.raw)}`}},datalabels:{display:c=>Number(c.dataset.data[c.dataIndex])>0,anchor:"end",align:"start",offset:6,color:c=>c.datasetIndex===0?"#ffffff":"#242424",font:{weight:"bold",size:9,family:"Arial, Helvetica, sans-serif"},formatter:v=>chartVolumeLabelCompact(v),clamp:true,clip:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,grace:"20%",grid:{color:"#eef0f2"}}}}
+  });
+
+  const prevDaySubtitleEl = document.getElementById("prevDaySubtitle");
+  if (prevDaySubtitleEl) {
+    prevDaySubtitleEl.textContent = prevDate
+      ? `Programado x carregado em ${brDate(prevDate)}, por unidade`
+      : "Programado x carregado no dia anterior, por unidade";
+  }
+  const prevDayNoteEl = document.getElementById("prevDayJustification");
+  if (prevDayNoteEl) {
+    const shortfall = units.some((u,i) => prevPrevisto[i] > prevRealizado[i] + 0.001);
+    const notes = [...new Set(units.map(u => programado[u]?.justificativa).filter(Boolean))];
+    if (shortfall && notes.length) {
+      prevDayNoteEl.textContent = `Justificativa para o não cumprimento do programado: ${notes.join(" | ")}`;
+      prevDayNoteEl.classList.remove("hidden");
+    } else {
+      prevDayNoteEl.classList.add("hidden");
+    }
+  }
+}
+
+function renderSummary() {
+  const body = document.getElementById("summaryBody");
+  const totals = unitTotals(filteredData);
+  const prev = previousBaseDate();
+  const prevTotals = unitTotals(allData.filter(r=>r.date===prev));
+  body.innerHTML = UNIT_ORDER.map(u => {
+    const initial = INITIAL_BALANCES[u];
+    const loaded = totals[u];
+    const balance = Math.max(initial-loaded,0);
+    const pct = initial ? loaded/initial*100 : 0;
+    return `<tr class="hover:bg-gray-50">
+      <td class="px-5 py-3 font-bold">${u}</td>
+      <td class="px-5 py-3 text-right">${fmtT(initial)}</td>
+      <td class="px-5 py-3 text-right font-semibold">${fmtT(loaded)}</td>
+      <td class="px-5 py-3 text-right">${fmtT(balance)}</td>
+      <td class="px-5 py-3 text-right">
+        <div class="flex items-center justify-end gap-3">
+          <div class="progress-track w-24 hidden sm:block"><div class="progress-fill" style="width:${Math.min(pct,100)}%"></div></div>
+          <span class="font-bold">${fmtPct(pct)}</span>
+        </div>
+      </td>
+      <td class="px-5 py-3 text-right">${fmtT(prevTotals[u])}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderDetails() {
+  const body = document.getElementById("detailBody");
+  const sorted = [...filteredData].sort((a,b)=> b.date.localeCompare(a.date) || a.unit.localeCompare(b.unit));
+  body.innerHTML = sorted.map(r => `<tr class="hover:bg-gray-50">
+    <td class="px-4 py-3">${brDate(r.date)}</td>
+    <td class="px-4 py-3 font-semibold">${r.unit}</td>
+    <td class="px-4 py-3">${r.note}</td>
+    <td class="px-4 py-3">${r.product}</td>
+    <td class="px-4 py-3 text-right">${fmtN(r.qty)}</td>
+    <td class="px-4 py-3 text-right">${fmtMoney(r.unitPrice)}</td>
+    <td class="px-4 py-3 text-right">${fmtMoney(r.value)}</td>
+  </tr>`).join("");
+  document.getElementById("detailTotal").textContent = `${sorted.length} registros • ${fmtT(sum(sorted,"qty"))}`;
+}
+
+function renderAll() {
+  renderHeaderMeta();
+  renderKPIs();
+  renderCharts();
+  renderSummary();
+  renderDetails();
+}
+
+function populateUnits() {
+  const s = document.getElementById("unitFilter");
+  const current = s.value;
+  s.innerHTML = `<option value="">Todas as unidades</option>` + UNIT_ORDER.map(u=>`<option value="${u}">${u}</option>`).join("");
+  s.value = current;
+}
+
+function applyFilters() {
+  const from = document.getElementById("dateFrom").value;
+  const to = document.getElementById("dateTo").value;
+  const unit = document.getElementById("unitFilter").value;
+  filteredData = allData.filter(r => (!from || r.date>=from) && (!to || r.date<=to) && (!unit || r.unit===unit));
+  renderAll();
+}
+
+document.getElementById("applyBtn").addEventListener("click", applyFilters);
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  document.getElementById("dateFrom").value = "";
+  document.getElementById("dateTo").value = "";
+  document.getElementById("unitFilter").value = "";
+  filteredData = [...allData];
+  renderAll();
+});
+
+document.getElementById("prevDayBtn").addEventListener("click", () => {
+  const d = previousBaseDate();
+  document.getElementById("dateFrom").value = d;
+  document.getElementById("dateTo").value = d;
+  document.getElementById("unitFilter").value = "";
+  applyFilters();
+});
+
+const FATURAMENTO_COLS = {
+  date: "Nota de Saída Data da Saída",
+  client: "Cliente Pseudônimo",
+  note: "Nota de Saída Código Numérico",
+  payment: "Condição de Pagamento Descrição",
+  product: "Produto Descrição",
+  icms: "Porcentagem de ICMS",
+  ipi: "Porcentagem de IPI",
+  qty: "Quantidade Faturada",
+  unitPrice: "Valor Unitário",
+  value: "Valor da Mercadoria"
+};
+
+// Localiza, dentro de UNIT_ORDER, a unidade correspondente a um texto livre vindo da
+// planilha (ex.: "VOLTA RED" na aba Programado deve casar com "VOLTA REDONDA").
+function matchUnitName(raw) {
+  const norm = String(raw ?? "").trim().toUpperCase().replace(/\s+/g," ");
+  if (!norm) return null;
+  const exact = UNIT_ORDER.find(u => u === norm);
+  if (exact) return exact;
+  return UNIT_ORDER.find(u => u.startsWith(norm) || norm.startsWith(u)) || null;
+}
+
+// Lê a aba "Faturamento" (ou a primeira aba, se o nome não existir) de um workbook
+// do SheetJS e devolve os lançamentos já normalizados no formato usado pelo dashboard.
+function parseFaturamentoSheet(wb) {
+  const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "faturamento") || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {defval:""});
+  return rows.map(row => ({
+    date: parseExcelDate(row[FATURAMENTO_COLS.date]),
+    unit: normalizeUnit(row[FATURAMENTO_COLS.client]),
+    note: String(row[FATURAMENTO_COLS.note] ?? ""),
+    payment: String(row[FATURAMENTO_COLS.payment] ?? "").trim(),
+    product: String(row[FATURAMENTO_COLS.product] ?? "").trim(),
+    icms: Number(row[FATURAMENTO_COLS.icms]) || 0,
+    ipi: Number(row[FATURAMENTO_COLS.ipi]) || 0,
+    qty: Number(row[FATURAMENTO_COLS.qty]) || 0,
+    unitPrice: Number(row[FATURAMENTO_COLS.unitPrice]) || 0,
+    value: Number(row[FATURAMENTO_COLS.value]) || 0
+  })).filter(r => r.date && UNIT_ORDER.includes(r.unit));
+}
+
+// Lê a aba "Programado" (toneladas programadas para o dia anterior e a justificativa
+// quando o programado não foi cumprido). Retorna null se a aba não existir no workbook,
+// para que quem chamar possa manter os dados de programado já carregados anteriormente.
+function parseProgramadoSheet(wb) {
+  const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "programado");
+  if (!sheetName) return null;
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
+  const out = {};
+  rows.forEach(row => {
+    const label = String(row[0] ?? "").trim().toUpperCase();
+    if (label === "TOTAL") return;
+    const unit = matchUnitName(row[1]);
+    if (!unit) return;
+    const rawVal = row[2];
+    const isFinalizado = typeof rawVal === "string" && /finaliz/i.test(rawVal);
+    const numVal = Number(rawVal);
+    out[unit] = {
+      previsto: isFinalizado ? null : (Number.isFinite(numVal) ? numVal : null),
+      finalizado: isFinalizado,
+      justificativa: String(row[3] ?? "").trim()
     };
+  });
+  return Object.keys(out).length ? out : null;
+}
 
-    // Mostrar mensagem
-    function showMessage(text, type = "info") {
-      const messagesDiv = document.getElementById("messages");
-      const msg = document.createElement("div");
-      msg.className = `alert alert-${type}`;
-      msg.textContent = text;
-      messagesDiv.appendChild(msg);
-      
-      if (type !== "error") {
-        setTimeout(() => msg.remove(), 6000);
+function setDataSourceLabel(text) {
+  const el = document.getElementById("dataSource");
+  if (el) el.textContent = text;
+}
+
+// Lê aba "Pedidos x Saldos" e retorna mapeamento de mês → números de pedidos
+let monthPedidos = null; // será inicializado com dados locais, depois substituído por dados do Google
+let currentSelectedMonth = null;
+
+function parsePedidosSheet(wb) {
+  const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === "pedidos x saldos");
+  if (!sheetName) return {};
+  
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""});
+  
+  const meses = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+  const result = {};
+  let currentMonth = null;
+  
+  rows.forEach((row, idx) => {
+    const col0 = String(row[0] || "").trim().toUpperCase();
+    
+    // Procura por nome de mês
+    if (meses.includes(col0)) {
+      currentMonth = col0;
+      result[currentMonth] = [];
+      return;
+    }
+    
+    // Se estamos em um mês e encontramos o número do pedido (coluna 1)
+    if (currentMonth && row[1] && row[0] !== "UNIDADE" && row[0] !== "TOTAL") {
+      const pedidoNum = String(row[1]).trim();
+      if (pedidoNum && pedidoNum !== "NÚMERO DO PEDIDO") {
+        result[currentMonth].push(pedidoNum);
       }
     }
+  });
+  
+  return result;
+}
 
-    // Atualizar badge de status
-    function setStatus(online, message = "") {
-      const badge = document.getElementById("statusBadge");
-      if (online) {
-        badge.className = "status-badge status-online";
-        badge.textContent = message || "🟢 Online";
-      } else {
-        badge.className = "status-badge status-offline";
-        badge.textContent = message || "🔴 Offline";
-      }
+// Dados locais de fallback: mapear pedidos por mês (serão substituídos pelos dados do Google quando disponíveis)
+let monthPedidosLocal = {
+  "AGOSTO": ["202618", "202619", "202620", "202621", "202622", "202623", "202624", "202625", "202626", "202627", "202628", "202629", "202630", "202631", "202632", "202633", "202634", "202635", "202636", "202637", "202638", "202639", "202640", "202641", "202642", "202643", "202644", "202645", "202646", "202647", "202648", "202649", "202650", "202651", "202652", "202653", "202654", "202655", "202656", "202657", "202658", "202660", "202662", "202663", "202664", "202665", "202666", "202667", "202668", "202669", "202670", "202671", "202672", "202673", "202674", "202675", "202676", "202677", "202678", "202679", "202680", "202681", "202685", "202686", "202687", "202688", "202689", "202690", "202691", "202692", "202693", "202694", "202695", "202696", "202697", "202699", "202700", "202701", "202702", "202703", "202704", "202705", "202706", "202707", "202708", "202710", "202711", "202712", "202713", "202714", "202717", "202718", "202719", "202720", "202721", "202722", "202724", "202725", "202726", "202727", "202728", "202729", "202730", "202731", "202732", "202733", "202734", "202735", "202736", "202737", "202738", "202739", "202740", "202741", "202742", "202743", "202744", "202745", "202746", "202747", "202748", "202749", "202750", "202751", "202752", "202753", "202754", "202755", "202756", "202757", "202758", "202760", "202762", "202763", "202764", "202765", "202767", "202768", "202769", "202770", "202771", "202772", "202773", "202775", "202776", "202777", "202778", "202779", "202780", "202781", "202782", "202783", "202784", "202785", "202786", "202787", "202788", "202789", "202790", "202791", "202792", "202793", "202794", "202795", "202796", "202797", "37135", "37136", "37137", "37138", "37139", "37140", "37141", "37142", "37143", "37144", "37145", "37146", "37147", "37148", "37149", "37150", "37151", "37152", "37153", "37154", "37155", "37156", "37157", "37158", "37159", "37160", "37161", "37162", "37163", "37164", "37165", "37166", "37167", "37168", "37169", "37170", "37172", "37173", "37174", "37175", "37176", "37177", "37178", "37179", "37180", "37181", "37182", "37183", "37184", "37185", "37186", "37187", "37188", "37189", "37190", "37191", "37192", "37193", "37194", "37195", "37196", "37197", "37198", "37199", "37200", "37201"]
+};
+
+// Inicializar monthPedidos com dados locais
+monthPedidos = monthPedidosLocal;
+
+// Renderiza abas dos meses
+function renderMonthTabs() {
+  const container = document.getElementById("monthTabsContainer");
+  const meses = Object.keys(monthPedidos).sort();
+  
+  if (meses.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+  
+  container.style.display = "flex";
+  container.innerHTML = meses.map((mes, idx) => {
+    const isActive = idx === 0 ? "active" : "";
+    return `<button class="month-tab ${isActive}" data-month="${mes}">${mes}</button>`;
+  }).join("");
+  
+  // Setup listeners
+  container.querySelectorAll(".month-tab").forEach(btn => {
+    btn.addEventListener("click", () => selectMonth(btn.dataset.month));
+  });
+  
+  if (meses.length > 0) {
+    selectMonth(meses[0]);
+  }
+}
+
+// Seleciona um mês e filtra dados
+function selectMonth(mes) {
+  currentSelectedMonth = mes;
+  
+  // Atualizar abas
+  document.querySelectorAll(".month-tab").forEach(btn => {
+    btn.classList.remove("active");
+    if (btn.dataset.month === mes) btn.classList.add("active");
+  });
+  
+  // Filtrar dados: manter apenas registros cujo note (número de pedido) está na lista do mês
+  const pedidosDoMes = monthPedidos[mes] || [];
+  filteredData = allData.filter(r => pedidosDoMes.includes(r.note));
+  
+  renderAll();
+}
+
+// Busca a planilha publicada do Google Sheets (REMOTE_XLSX_URL) e atualiza o dashboard
+// com os dados ao vivo. Roda automaticamente ao abrir a página e pelo botão
+// "Atualizar dados". Se a busca falhar (offline, sem permissão, etc.), a base local
+// (embutida no arquivo ou carregada por último) continua sendo usada normalmente.
+async function loadRemoteData(silent) {
+  const btn = document.getElementById("refreshBtn");
+  const originalLabel = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Atualizando..."; }
+  try {
+    const res = await fetch(REMOTE_XLSX_URL, {cache:"no-store"});
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(buf, {type:"array", cellDates:false});
+    const parsed = parseFaturamentoSheet(wb);
+    if (!parsed.length) throw new Error("A planilha remota não trouxe registros válidos.");
+
+    allData = parsed;
+    filteredData = [...allData];
+    const prog = parseProgramadoSheet(wb);
+    if (prog) programado = prog;
+    
+    // Ler aba "Pedidos x Saldos" para separar por mês
+    monthPedidos = parsePedidosSheet(wb);
+
+    const lastModified = res.headers.get("last-modified");
+    spreadsheetUpdateTimestamp = lastModified ? new Date(lastModified).toISOString() : new Date().toISOString();
+
+    setDataSourceLabel("Google Sheets (dados ao vivo)");
+    populateUnits();
+    document.getElementById("dateFrom").value = "";
+    document.getElementById("dateTo").value = "";
+    document.getElementById("unitFilter").value = "";
+    
+    // Renderizar abas de mês
+    renderMonthTabs();
+    renderAll();
+    return true;
+  } catch (err) {
+    console.warn("Não foi possível atualizar a partir do Google Sheets:", err);
+    if (!silent) {
+      alert("Não foi possível buscar os dados online agora. A última base carregada foi mantida.\n\n" + err.message);
     }
+    return false;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
 
-    // Carregar arquivo do Google Sheets
-    async function loadGoogleSheetsData() {
-      try {
-        setStatus(false, "🔄 Carregando...");
-        
-        console.log("📥 Buscando arquivo do Google Sheets...");
-        const response = await fetch(GOOGLE_SHEETS_URL);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+document.getElementById("refreshBtn").addEventListener("click", () => loadRemoteData(false));
 
-        const arrayBuffer = await response.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+document.getElementById("fileInput").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const wb = XLSX.read(arrayBuffer, {type:"array", cellDates:false});
+    const parsed = parseFaturamentoSheet(wb);
 
-        console.log("✅ Arquivo baixado com sucesso");
-        console.log("📋 Abas:", workbook.SheetNames);
+    if (!parsed.length) throw new Error("Nenhum registro válido foi identificado. Verifique os nomes das colunas.");
+    allData = parsed;
+    filteredData = [...parsed];
+    const prog = parseProgramadoSheet(wb);
+    if (prog) programado = prog;
+    // Registra o momento real da atualização. A partir daqui, todas as referências
+    // a "dia anterior" passam a usar D-1 desta data, na web e no PDF.
+    spreadsheetUpdateTimestamp = new Date().toISOString();
+    setDataSourceLabel("Arquivo local carregado manualmente");
+    populateUnits();
+    document.getElementById("dateFrom").value = "";
+    document.getElementById("dateTo").value = "";
+    document.getElementById("unitFilter").value = "";
+    renderAll();
+    alert(`Planilha atualizada com sucesso: ${parsed.length} registros válidos.`);
+  } catch (err) {
+    alert("Não foi possível processar a planilha: " + err.message);
+  } finally {
+    event.target.value = "";
+  }
+});
 
-        // Procurar aba "Pedidos x Saldos"
-        if (!workbook.SheetNames.includes("Pedidos x Saldos")) {
-          throw new Error("Aba 'Pedidos x Saldos' não encontrada no arquivo");
-        }
+function getLatestFilteredDate() {
+  const dates = [...new Set(filteredData.map(r => r.date).filter(Boolean))].sort();
+  return dates[dates.length - 1] || "";
+}
 
-        const worksheet = workbook.Sheets["Pedidos x Saldos"];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+function buildPdfDetailRows() {
+  // O detalhamento do PDF sempre usa o DIA ANTERIOR da data de atualização da planilha,
+  // independentemente dos filtros aplicados no dashboard.
+  // As demais informações do PDF continuam respeitando os filtros da tela.
+  const previousDate = previousBaseDate();
 
-        console.log("🔍 Parseando dados...");
-        parseExcelData(jsonData);
-        
-        lastUpdateTime = new Date().toLocaleTimeString("pt-BR");
-        setStatus(true, `🟢 Online - ${lastUpdateTime}`);
-        showMessage(`✓ Dados carregados com sucesso do Google Sheets! Atualizado em ${lastUpdateTime}`, "success");
-        
-        // Mostrar dashboard e ocultar loading
-        document.getElementById("loadingArea").style.display = "none";
-        document.getElementById("tabsArea").style.display = "block";
-        document.getElementById("exportPdfBtn").disabled = false;
+  if (!previousDate) {
+    return {
+      detailDate: "",
+      html: `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível para o dia anterior.</td></tr>`,
+      count: 0,
+      qty: 0
+    };
+  }
 
-      } catch (error) {
-        console.error("❌ Erro ao carregar:", error);
-        setStatus(false, "🔴 Erro");
-        showMessage(`❌ Erro ao carregar dados: ${error.message}`, "error");
-        document.getElementById("loadingArea").innerHTML = `
-          <div class="text-center">
-            <p class="text-lg font-bold text-red-600 mb-4">Erro ao conectar</p>
-            <p class="text-gray-600 mb-4">${error.message}</p>
-            <button id="retryBtn" class="btn-primary px-6 py-2 rounded-lg">🔄 Tentar Novamente</button>
-          </div>
-        `;
-        document.getElementById("retryBtn").addEventListener("click", loadGoogleSheetsData);
-      }
-    }
+  const dayRows = allData
+    .filter(r => r.date === previousDate)
+    .sort((a,b) => UNIT_ORDER.indexOf(a.unit) - UNIT_ORDER.indexOf(b.unit) || String(a.note).localeCompare(String(b.note)));
 
-    // Parser de dados Excel
-    function parseExcelData(jsonData) {
-      allMonthsData = {};
-      let currentMonth = null;
-      let headerRow = null;
+  let out = "";
+  UNIT_ORDER.forEach(unit => {
+    const rows = dayRows.filter(r => r.unit === unit);
+    if (!rows.length) return;
 
-      for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        
-        // Procurar nome do mês
-        if (row[0] && typeof row[0] === "string") {
-          const monthName = row[0].toUpperCase().trim();
-          const meses = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
-                        "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
-          
-          if (meses.includes(monthName)) {
-            currentMonth = monthName;
-            allMonthsData[currentMonth] = [];
-            headerRow = null;
-            console.log(`📅 Mês encontrado: ${currentMonth}`);
-            continue;
-          }
-        }
+    const unitQty = sum(rows, "qty");
+    out += `<tr>
+      <td colspan="7" class="px-4 py-3 bg-[#eef2d2] border-y border-[#d9e39b] font-black text-[#242424]">
+        ${unit} — ${brDate(previousDate)} — ${fmtT(unitQty)}
+      </td>
+    </tr>`;
 
-        // Procurar linha de cabeçalho
-        if (currentMonth && !headerRow && row[0] === "UNIDADE") {
-          headerRow = { unit: 0, order: 1, qty: 2 };
-          console.log(`   Cabeçalho encontrado`);
-          continue;
-        }
+    out += rows.map(r => `<tr>
+      <td class="px-4 py-3">${brDate(r.date)}</td>
+      <td class="px-4 py-3 font-semibold">${r.unit}</td>
+      <td class="px-4 py-3">${r.note}</td>
+      <td class="px-4 py-3">${r.product}</td>
+      <td class="px-4 py-3 text-right">${fmtN(r.qty)}</td>
+      <td class="px-4 py-3 text-right">${fmtMoney(r.unitPrice)}</td>
+      <td class="px-4 py-3 text-right">${fmtMoney(r.value)}</td>
+    </tr>`).join("");
+  });
 
-        // Processar dados do mês
-        if (currentMonth && headerRow && row[0] && row[0] !== "UNIDADE" && row[0] !== "TOTAL") {
-          const unit = String(row[0]).trim();
-          const order = String(row[headerRow.order] || "").trim();
-          let qty = row[headerRow.qty];
+  return {
+    detailDate: previousDate,
+    html: out || `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">Nenhum lançamento disponível no dia anterior.</td></tr>`,
+    count: dayRows.length,
+    qty: sum(dayRows, "qty")
+  };
+}
 
-          // Processar quantidade
-          if (typeof qty === "string" && qty.includes("=")) {
-            // Fórmula - não processar aqui, será 0
-            qty = 0;
-            console.log(`   ⚠️ ${unit}: fórmula não calculada (${qty})`);
-          } else {
-            qty = Number(qty) || 0;
-          }
+document.getElementById("pdfBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("pdfBtn");
+  const oldText = btn.textContent;
+  btn.textContent = "Gerando PDF...";
+  btn.disabled = true;
 
-          if (unit && order) {
-            allMonthsData[currentMonth].push({
-              unit: unit,
-              order: order,
-              qty: Math.round(qty)
-            });
-            console.log(`   ✓ ${unit}: Pedido ${order} - ${qty}`);
-          }
-        }
-      }
+  const detailBody = document.getElementById("detailBody");
+  const detailTotal = document.getElementById("detailTotal");
+  const detailSection = detailBody.closest("section");
+  const detailTitle = detailSection.querySelector("h2");
+  const detailSubtitle = detailSection.querySelector("p");
+  const detailScroller = detailBody.closest(".overflow-auto");
 
-      // Remover meses vazios
-      Object.keys(allMonthsData).forEach(month => {
-        if (allMonthsData[month].length === 0) {
-          delete allMonthsData[month];
-        }
-      });
+  const originalBody = detailBody.innerHTML;
+  const originalTotal = detailTotal.textContent;
+  const originalTitle = detailTitle.textContent;
+  const originalSubtitle = detailSubtitle.textContent;
+  const originalScrollerClass = detailScroller.className;
+  const noPrintElements = [...document.querySelectorAll(".no-print")];
+  const originalNoPrintDisplays = noPrintElements.map(el => el.style.display);
 
-      if (Object.keys(allMonthsData).length === 0) {
-        throw new Error("Nenhum dado de mês foi encontrado no arquivo");
-      }
+  try {
+    // Oculta botões e controles de interação somente durante a captura do PDF.
+    noPrintElements.forEach(el => el.style.display = "none");
+    // No PDF, somente o detalhamento é substituído:
+    // ele mostra exclusivamente o último dia existente no filtro atual,
+    // agrupado e separado por unidade. KPIs, gráficos e demais tabelas
+    // permanecem exatamente conforme o filtro aplicado na tela.
+    const pdfDetail = buildPdfDetailRows();
 
-      console.log(`✅ ${Object.keys(allMonthsData).length} mês(es) carregado(s)`);
-      renderMonthTabs();
-      renderMonthContents();
-    }
+    detailBody.innerHTML = pdfDetail.html;
+    detailTitle.textContent = "Detalhamento dos carregamentos — último dia";
+    detailSubtitle.textContent = pdfDetail.detailDate
+      ? `Lançamentos do dia anterior (${brDate(pdfDetail.detailDate)}), separados por unidade`
+      : "Sem lançamentos disponíveis no dia anterior";
+    detailTotal.textContent = `${pdfDetail.count} registros • ${fmtT(pdfDetail.qty)}`;
 
-    // Renderizar abas dos meses
-    function renderMonthTabs() {
-      const container = document.getElementById("monthTabs");
-      container.innerHTML = "";
+    // Expande o detalhamento para que todos os lançamentos do último dia
+    // apareçam no PDF, sem o limite de altura usado na visualização da página.
+    detailScroller.className = "overflow-visible";
 
-      const months = Object.keys(allMonthsData).sort();
-      months.forEach((month, index) => {
-        const btn = document.createElement("button");
-        btn.className = "tab-btn btn-secondary";
-        if (index === 0) {
-          btn.classList.add("active");
-          currentMonth = month;
-        }
-        btn.textContent = month;
-        btn.addEventListener("click", () => switchMonth(month));
-        container.appendChild(btn);
-      });
-    }
+    // Aguarda o navegador aplicar as alterações antes de capturar.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-    // Trocar mês ativo
-    function switchMonth(month) {
-      currentMonth = month;
-
-      document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.textContent === month) {
-          btn.classList.add("active");
-        }
-      });
-
-      document.querySelectorAll(".tab-content").forEach(content => {
-        content.classList.remove("active");
-      });
-      document.getElementById(`month-${month}`).classList.add("active");
-    }
-
-    // Renderizar conteúdo dos meses
-    function renderMonthContents() {
-      const container = document.getElementById("monthsContainer");
-      container.innerHTML = "";
-
-      Object.entries(allMonthsData).forEach(([month, data]) => {
-        const monthDiv = document.createElement("div");
-        monthDiv.id = `month-${month}`;
-        monthDiv.className = "tab-content";
-        if (month === Object.keys(allMonthsData)[0]) {
-          monthDiv.classList.add("active");
-        }
-
-        const totalQty = data.reduce((sum, item) => sum + item.qty, 0);
-
-        // Cabeçalho do mês
-        const header = document.createElement("div");
-        header.className = "card mb-6 p-6 bg-gradient-to-r from-[#242424] to-[#333333] text-white";
-        header.innerHTML = `
-          <h2 class="text-2xl font-bold mb-2">${month}</h2>
-          <p class="text-sm text-gray-300">Total de pedidos: <span class="font-bold text-[#b8d51b]">${fmtT(totalQty)}</span> | Unidades: <span class="font-bold">${data.length}</span></p>
-        `;
-        monthDiv.appendChild(header);
-
-        // Cards de pedidos
-        const cardsContainer = document.createElement("div");
-        cardsContainer.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6";
-
-        data.forEach(item => {
-          const card = document.createElement("div");
-          card.className = "card kpi-accent p-5";
-          card.innerHTML = `
-            <div class="flex justify-between items-start mb-3">
-              <div>
-                <p class="text-xs text-gray-500 font-semibold">UNIDADE</p>
-                <p class="text-lg font-bold text-[#242424]">${unitShortNames[item.unit] || item.unit}</p>
-              </div>
-              <span class="bg-[#b8d51b] text-[#242424] text-xs font-bold px-2 py-1 rounded">Pedido</span>
-            </div>
-            <div class="border-t border-gray-200 pt-3 mb-3">
-              <p class="text-xs text-gray-500 font-semibold">NÚMERO DO PEDIDO</p>
-              <p class="text-2xl font-bold text-[#b8d51b] font-mono">${item.order}</p>
-            </div>
-            <div class="bg-[#f4f6f8] rounded-lg p-3">
-              <p class="text-xs text-gray-500 font-semibold">QUANTIDADE PEDIDA</p>
-              <p class="text-3xl font-bold text-[#242424]">${fmtN(item.qty)}</p>
-              <p class="text-xs text-gray-600">toneladas</p>
-            </div>
-          `;
-          cardsContainer.appendChild(card);
-        });
-
-        monthDiv.appendChild(cardsContainer);
-
-        // Tabela resumida
-        const tableDiv = document.createElement("div");
-        tableDiv.className = "card mb-6 overflow-x-auto";
-        tableDiv.innerHTML = `
-          <table class="w-full">
-            <thead class="table-head">
-              <tr>
-                <th class="px-6 py-3 text-left text-sm font-semibold">UNIDADE</th>
-                <th class="px-6 py-3 text-left text-sm font-semibold">Nº PEDIDO</th>
-                <th class="px-6 py-3 text-right text-sm font-semibold">QUANTIDADE (t)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.map((item, idx) => `
-                <tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-[#f9fafb]'} border-b border-gray-200">
-                  <td class="px-6 py-4 text-sm font-medium">${item.unit}</td>
-                  <td class="px-6 py-4 text-sm font-mono text-[#b8d51b]">${item.order}</td>
-                  <td class="px-6 py-4 text-sm text-right font-semibold">${fmtN(item.qty)}</td>
-                </tr>
-              `).join('')}
-              <tr class="bg-[#242424] text-white font-bold">
-                <td class="px-6 py-4 text-sm">TOTAL</td>
-                <td class="px-6 py-4 text-sm">—</td>
-                <td class="px-6 py-4 text-sm text-right">${fmtN(totalQty)}</td>
-              </tr>
-            </tbody>
-          </table>
-        `;
-        monthDiv.appendChild(tableDiv);
-
-        container.appendChild(monthDiv);
-      });
-    }
-
-    // Exportar PDF
-    document.getElementById("exportPdfBtn").addEventListener("click", async function() {
-      if (!currentMonth) {
-        showMessage("Selecione um mês primeiro", "error");
-        return;
-      }
-
-      this.disabled = true;
-      const originalText = this.textContent;
-      this.textContent = "Gerando PDF...";
-
-      try {
-        const monthElement = document.getElementById(`month-${currentMonth}`);
-        const clonedElement = monthElement.cloneNode(true);
-
-        const tempContainer = document.createElement("div");
-        tempContainer.style.position = "absolute";
-        tempContainer.style.left = "-9999px";
-        tempContainer.style.top = "-9999px";
-        tempContainer.style.width = "1200px";
-        tempContainer.style.background = "white";
-        tempContainer.appendChild(clonedElement);
-        document.body.appendChild(tempContainer);
-
-        const canvas = await html2canvas(tempContainer, {
-          backgroundColor: "#ffffff",
-          scale: 2,
-          useCORS: true
-        });
-
-        document.body.removeChild(tempContainer);
-
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-          orientation: "portrait",
-          unit: "mm",
-          format: "a4"
-        });
-
-        const pageW = pdf.internal.pageSize.getWidth();
-        const pageH = pdf.internal.pageSize.getHeight();
-        const imgW = pageW - 20;
-        const imgH = (canvas.height * imgW) / canvas.width;
-
-        let heightLeft = imgH;
-        let position = 10;
-
-        const img = canvas.toDataURL("image/jpeg");
-
-        pdf.addImage(img, "JPEG", 10, position, imgW, imgH);
-        heightLeft -= pageH - 20;
-
-        while (heightLeft > 0) {
-          position = heightLeft - imgH;
-          pdf.addPage();
-          pdf.addImage(img, "JPEG", 10, position, imgW, imgH);
-          heightLeft -= pageH;
-        }
-
-        const fileName = `Dashboard-CSN-${currentMonth}.pdf`;
-        pdf.save(fileName);
-
-        showMessage(`✓ PDF "${fileName}" gerado com sucesso!`, "success");
-      } catch (error) {
-        console.error("Erro ao gerar PDF:", error);
-        showMessage("❌ Erro ao gerar PDF", "error");
-      } finally {
-        this.disabled = false;
-        this.textContent = originalText;
-      }
+    const { jsPDF } = window.jspdf;
+    const node = document.getElementById("dashboard");
+    const canvas = await html2canvas(node, {
+      scale: 1.5,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      windowWidth: node.scrollWidth,
+      windowHeight: node.scrollHeight
     });
 
-    // Botão de atualizar
-    document.getElementById("refreshBtn").addEventListener("click", async function() {
-      this.disabled = true;
-      this.textContent = "↻ Atualizando...";
-      document.getElementById("messages").innerHTML = "";
-      
-      await loadGoogleSheetsData();
-      
-      this.disabled = false;
-      this.textContent = "↻ Atualizar";
-    });
+    const img = canvas.toDataURL("image/jpeg", 0.92);
+    const pdf = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW;
+    const imgH = canvas.height * imgW / canvas.width;
 
-    // Carregar dados ao abrir a página
-    window.addEventListener("load", loadGoogleSheetsData);
-  </script>
+    let heightLeft = imgH;
+    let position = 0;
+
+    pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
+    heightLeft -= pageH;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgH;
+      pdf.addPage();
+      pdf.addImage(img, "JPEG", 0, position, imgW, imgH);
+      heightLeft -= pageH;
+    }
+
+    const fileDate = pdfDetail.detailDate || latestBaseDate() || "relatorio";
+    pdf.save(`dashboard-csn-${fileDate}.pdf`);
+  } finally {
+    // Restaura a página exatamente como estava antes da exportação.
+    detailBody.innerHTML = originalBody;
+    detailTotal.textContent = originalTotal;
+    detailTitle.textContent = originalTitle;
+    detailSubtitle.textContent = originalSubtitle;
+    detailScroller.className = originalScrollerClass;
+    noPrintElements.forEach((el, index) => el.style.display = originalNoPrintDisplays[index]);
+
+    btn.textContent = oldText;
+    btn.disabled = false;
+  }
+});
+
+populateUnits();
+renderMonthTabs();
+renderAll();
+setDataSourceLabel("Base local (aguardando conexão)");
+// Ao abrir a página, tenta buscar a planilha publicada no Google Sheets automaticamente.
+// Enquanto isso não termina, o dashboard já exibe a base local embutida no arquivo,
+// para nunca ficar em branco — funciona também offline ou se o link ficar indisponível.
+loadRemoteData(true);
+</script>
 </body>
 </html>
